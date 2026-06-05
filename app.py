@@ -68,7 +68,7 @@ def get_db():
             employees.append({
                 "id": e["id"],
                 "name": e["name"],
-                "role": e["role"],
+                "role": "MANAGEMENT" if e["role"] == "MANAGER" else e["role"],
                 "department": e["department"],
                 "email": e["email"],
                 "credits": e["credits"],
@@ -235,7 +235,7 @@ def get_db():
         permissions = []
         for p in permissions_res.data:
             permissions.append({
-                "role": p["role"],
+                "role": "MANAGEMENT" if p["role"] == "MANAGER" else p["role"],
                 "modules": p["modules"],
                 "actions": p["actions"]
             })
@@ -343,7 +343,7 @@ def post_db():
         permissions_to_insert = []
         for p in payload.get("permissions", []):
             permissions_to_insert.append({
-                "role": p["role"],
+                "role": "MANAGER" if p["role"] == "MANAGEMENT" else p["role"],
                 "modules": p["modules"],
                 "actions": p["actions"]
             })
@@ -364,7 +364,7 @@ def post_db():
             employees_to_insert.append({
                 "id": e["id"],
                 "name": e["name"],
-                "role": e["role"],
+                "role": "MANAGER" if e["role"] == "MANAGEMENT" else e["role"],
                 "department": e["department"],
                 "email": e["email"],
                 "credits": e.get("credits", 500),

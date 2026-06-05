@@ -1,0 +1,316 @@
+{
+  "employees": [
+    {
+      "id": "hr-1",
+      "name": "Marcus Johnson",
+      "role": "HR",
+      "department": "People Operations",
+      "email": "marcus@company.com",
+      "credits": 500,
+      "compliance": 100,
+      "isActive": true
+    },
+    {
+      "id": "hr-2",
+      "name": "Eleanor Vance",
+      "role": "HR",
+      "department": "Strategy & People",
+      "email": "eleanor@company.com",
+      "credits": 500,
+      "compliance": 100,
+      "isActive": true
+    },
+    {
+      "id": "mgr-1",
+      "name": "Sarah Chen",
+      "role": "MANAGER",
+      "department": "Engineering",
+      "email": "sarah@company.com",
+      "credits": 942,
+      "compliance": 98,
+      "isActive": true,
+      "managerId": "hr-2"
+    },
+    {
+      "id": "mgr-2",
+      "name": "David Miller",
+      "role": "MANAGER",
+      "department": "Product",
+      "email": "david@company.com",
+      "credits": 880,
+      "compliance": 95,
+      "isActive": true,
+      "managerId": "hr-2"
+    },
+    {
+      "id": "mgr-3",
+      "name": "Robert Fox",
+      "role": "MANAGER",
+      "department": "Sales",
+      "email": "robert@company.com",
+      "credits": 910,
+      "compliance": 99,
+      "isActive": true,
+      "managerId": "hr-1"
+    },
+    {
+      "id": "emp-1",
+      "name": "Alex Rivera",
+      "role": "EMPLOYEE",
+      "department": "Engineering",
+      "email": "alex@company.com",
+      "credits": 785,
+      "compliance": 92,
+      "isActive": true,
+      "managerId": "mgr-1"
+    },
+    {
+      "id": "emp-2",
+      "name": "Jamie Smith",
+      "role": "EMPLOYEE",
+      "department": "Engineering",
+      "email": "jamie@company.com",
+      "credits": 810,
+      "compliance": 96,
+      "isActive": true,
+      "managerId": "mgr-1"
+    },
+    {
+      "id": "emp-3",
+      "name": "Riley Cooper",
+      "role": "EMPLOYEE",
+      "department": "Product",
+      "email": "riley@company.com",
+      "credits": 720,
+      "compliance": 88,
+      "isActive": true,
+      "managerId": "mgr-2"
+    },
+    {
+      "id": "emp-4",
+      "name": "Jordan Lee",
+      "role": "EMPLOYEE",
+      "department": "Sales",
+      "email": "jordan@company.com",
+      "credits": 850,
+      "compliance": 94,
+      "isActive": true,
+      "managerId": "mgr-3"
+    },
+    {
+      "id": "emp-5",
+      "name": "Sasha Grey",
+      "role": "EMPLOYEE",
+      "department": "Sales",
+      "email": "sasha@company.com",
+      "credits": 920,
+      "compliance": 100,
+      "isActive": true,
+      "managerId": "mgr-3"
+    }
+  ],
+  "goals": [
+    {
+      "id": "g1",
+      "employeeId": "emp-1",
+      "title": "Migrate Legacy Auth to OAuth2.0",
+      "category": "Project",
+      "priority": "High",
+      "weightage": 30,
+      "progress": 65,
+      "status": "In Progress",
+      "deadline": "2024-06-15"
+    },
+    {
+      "id": "g2",
+      "employeeId": "emp-1",
+      "title": "Internal Tools Automation",
+      "category": "Innovation",
+      "priority": "Low",
+      "weightage": 15,
+      "progress": 100,
+      "status": "Approved",
+      "deadline": "2024-05-01",
+      "submissionDate": "2026-05-28T13:07:29.706Z"
+    },
+    {
+      "id": "g3",
+      "employeeId": "emp-2",
+      "title": "React 19 Upgrade",
+      "category": "Project",
+      "priority": "High",
+      "weightage": 40,
+      "progress": 20,
+      "status": "In Progress",
+      "deadline": "2024-08-01"
+    },
+    {
+      "employeeId": "hr-1",
+      "title": "complete the booking application",
+      "category": "Project",
+      "priority": "Medium",
+      "weightage": 10,
+      "deadline": "2026-06-10",
+      "id": "g-1779973728790",
+      "progress": 50,
+      "status": "In Progress",
+      "attachments": [],
+      "history": [
+        {
+          "id": "upd-1779973775604",
+          "percentage": 50,
+          "comment": "Progress update",
+          "timestamp": "2026-05-28T13:09:35.604Z",
+          "attachments": []
+        },
+        {
+          "id": "upd-1779973738858",
+          "percentage": 5,
+          "comment": "Progress update",
+          "timestamp": "2026-05-28T13:08:58.858Z",
+          "attachments": []
+        }
+      ]
+    }
+  ],
+  "submissions": [
+    {
+      "id": "s1",
+      "employeeId": "emp-1",
+      "weekStarting": "2024-05-01",
+      "tasks": [
+        "Auth initial setup",
+        "Schema design"
+      ],
+      "achievements": [
+        "Optimized database queries by 20%"
+      ],
+      "challenges": [
+        "Documentation gaps"
+      ],
+      "status": "Approved",
+      "managerFeedback": "Great progress on the query optimizations!"
+    }
+  ],
+  "achievements": [],
+  "appraisals": [],
+  "appraisalCycles": [
+    {
+      "id": "cycle-1",
+      "name": "May 2024 Cycle",
+      "type": "Monthly",
+      "status": "Active",
+      "startDate": "2024-05-01",
+      "endDate": "2024-05-31",
+      "month": 5,
+      "year": 2024
+    }
+  ],
+  "complaints": [
+    {
+      "id": "c1",
+      "employeeId": "emp-3",
+      "title": "Repeated Late Timesheets",
+      "description": "Failed to submit timesheets for 3 consecutive days despite reminders.",
+      "type": "Timesheet",
+      "penaltyPoints": 30,
+      "date": "2024-05-10T14:00:00Z",
+      "status": "Registered"
+    }
+  ],
+  "notifications": [
+    {
+      "id": "n1",
+      "userId": "emp-1",
+      "title": "Goal Assigned",
+      "message": "Sarah Chen has assigned a new goal: Migrate Legacy Auth.",
+      "type": "Goal",
+      "read": false,
+      "date": "2024-05-01T09:00:00Z"
+    },
+    {
+      "id": "n-1779973649707",
+      "userId": "emp-1",
+      "title": "Goal Approved",
+      "message": "Your goal \"Internal Tools Automation\" has been approved.",
+      "type": "Goal",
+      "read": false,
+      "date": "2026-05-28T13:07:29.707Z"
+    },
+    {
+      "id": "n-1779973728790",
+      "userId": "hr-1",
+      "title": "New Goal Assigned",
+      "message": "A new goal has been assigned: complete the booking application",
+      "type": "Goal",
+      "read": false,
+      "date": "2026-05-28T13:08:48.790Z"
+    }
+  ],
+  "monthlyScores": [],
+  "manualAdjustments": [],
+  "auditLogs": [],
+  "permissions": [
+    {
+      "role": "EMPLOYEE",
+      "modules": {
+        "dashboard": true,
+        "goals": true,
+        "teamGoals": false,
+        "submissions": true,
+        "complaints": false,
+        "appraisal": true,
+        "admin": false
+      },
+      "actions": {
+        "approveSubmissions": false,
+        "assignGoals": false,
+        "manageUsers": false,
+        "createComplaints": false
+      }
+    },
+    {
+      "role": "MANAGER",
+      "modules": {
+        "dashboard": true,
+        "goals": true,
+        "teamGoals": true,
+        "submissions": true,
+        "complaints": false,
+        "appraisal": true,
+        "admin": false
+      },
+      "actions": {
+        "approveSubmissions": true,
+        "assignGoals": true,
+        "manageUsers": false,
+        "createComplaints": false
+      }
+    },
+    {
+      "role": "HR",
+      "modules": {
+        "dashboard": true,
+        "goals": true,
+        "teamGoals": true,
+        "submissions": true,
+        "complaints": true,
+        "appraisal": true,
+        "admin": true
+      },
+      "actions": {
+        "approveSubmissions": true,
+        "assignGoals": true,
+        "manageUsers": true,
+        "createComplaints": true
+      }
+    }
+  ],
+  "badges": [],
+  "recognitions": [],
+  "pointConfig": {
+    "weeklySubmission": 5,
+    "achievement": 10,
+    "certification": 15
+  }
+}

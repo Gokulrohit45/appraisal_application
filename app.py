@@ -33,6 +33,10 @@ def serialized_route(f):
             return f(*args, **kwargs)
     return decorated_function
 
+@app.route("/", methods=["GET"])
+def home():
+    return jsonify({"status": "active", "message": "StrataPerform Backend API is running."})
+
 @app.route("/api/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok"})

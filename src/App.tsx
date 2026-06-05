@@ -116,14 +116,16 @@ const formatEmpNameById = (id: string, employees: Employee[]): string => {
 
 // --- API Service ---
 
+const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || "";
+
 const API = {
   fetchData: async () => {
-    const res = await fetch("/api/db");
+    const res = await fetch(`${API_BASE_URL}/api/db`);
     const d = await res.json();
     return d;
   },
   saveData: async (data: AppData) => {
-    await fetch("/api/db", {
+    await fetch(`${API_BASE_URL}/api/db`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data)
@@ -5082,7 +5084,7 @@ const SettingsView = () => {
 
     for (const item of createdUsers) {
       try {
-        await fetch("/api/send-temp-password", {
+        await fetch(`${API_BASE_URL}/api/send-temp-password`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -5177,7 +5179,7 @@ const SettingsView = () => {
     
     if (isNewUser && createdUser) {
       try {
-        await fetch("/api/send-temp-password", {
+        await fetch(`${API_BASE_URL}/api/send-temp-password`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -6342,7 +6344,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/forgot-password", {
+      const res = await fetch(`${API_BASE_URL}/api/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim() })
@@ -6380,7 +6382,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/reset-password", {
+      const res = await fetch(`${API_BASE_URL}/api/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -6392,7 +6394,7 @@ const Login = () => {
       const resData = await res.json();
       if (res.ok && resData.success) {
         // Fetch fresh data from database
-        const freshRes = await fetch("/api/db");
+        const freshRes = await fetch(`${API_BASE_URL}/api/db`);
         const freshData = await freshRes.json();
         
         const resetEmp = freshData.employees?.find((emp: any) => emp.email.toLowerCase() === email.trim().toLowerCase());

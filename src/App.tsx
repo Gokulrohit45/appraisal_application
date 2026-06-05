@@ -472,11 +472,10 @@ const AdminDashboardView = () => {
             <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-900">Talent Momentum Grid</h3>
             <div className="flex gap-2">
                <Badge variant="success">Rising Stars</Badge>
-               <Badge variant="danger">High Risk</Badge>
             </div>
          </div>
 
-         <div className="col-span-12 lg:col-span-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+         <div className="col-span-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {topPerformers.slice(0, 4).map((emp, i) => (
               <div key={emp.id} className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm hover:border-indigo-200 transition-all group">
                  <div className="flex items-center gap-4">
@@ -495,27 +494,6 @@ const AdminDashboardView = () => {
               </div>
             ))}
          </div>
-
-         <Card className="col-span-12 lg:col-span-6 bg-slate-900 text-white border-none p-10 flex flex-col justify-between" title="Strategic Retention Alerts">
-            <div className="space-y-6">
-               {lowPerformers.slice(0, 3).map(emp => (
-                 <div key={emp.id} className="flex items-center justify-between border-b border-white/5 pb-4 last:border-0 last:pb-0">
-                    <div className="flex items-center gap-4">
-                       <div className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)]" />
-                       <div>
-                          <p className="text-xs font-bold">{formatEmpName(emp)}</p>
-                          <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">{emp.department}</p>
-                       </div>
-                    </div>
-                    <div className="text-right">
-                       <p className="text-sm font-black text-rose-400">{emp.credits}</p>
-                       <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest italic">Attrition Risk</p>
-                    </div>
-                 </div>
-               ))}
-            </div>
-            <button className="mt-8 w-full py-4 bg-white/10 hover:bg-white/20 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all">Launch AI Retention Plan</button>
-         </Card>
       </div>
     </div>
   );

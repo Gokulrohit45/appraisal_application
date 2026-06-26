@@ -92,6 +92,40 @@ const useAuth = () => {
 const useData = () => {
   const context = useContext(DataContext);
   if (!context) throw new Error("useData must be used within DataProvider");
+
+  const isSettings = typeof window !== "undefined" && window.location.pathname === "/settings";
+  if (!isSettings && context.data) {
+    const activeEmps = context.data.employees ? context.data.employees.filter(e => e.isActive) : [];
+    const activeEmpIds = new Set(activeEmps.map(e => e.id));
+
+    const filteredGoals = context.data.goals ? context.data.goals.filter(g => activeEmpIds.has(g.employeeId)) : [];
+    const filteredSubmissions = context.data.submissions ? context.data.submissions.filter(s => activeEmpIds.has(s.employeeId)) : [];
+    const filteredAchievements = context.data.achievements ? context.data.achievements.filter(a => activeEmpIds.has(a.employeeId)) : [];
+    const filteredComplaints = context.data.complaints ? context.data.complaints.filter(c => activeEmpIds.has(c.employeeId)) : [];
+    const filteredAppraisals = context.data.appraisals ? context.data.appraisals.filter(ap => activeEmpIds.has(ap.employeeId)) : [];
+    const filteredMonthlyScores = context.data.monthlyScores ? context.data.monthlyScores.filter(ms => activeEmpIds.has(ms.employeeId)) : [];
+    const filteredManualAdjustments = context.data.manualAdjustments ? context.data.manualAdjustments.filter(ma => activeEmpIds.has(ma.employeeId)) : [];
+    const filteredNotifications = context.data.notifications ? context.data.notifications.filter(n => activeEmpIds.has(n.userId)) : [];
+    const filteredRecognitions = context.data.recognitions ? context.data.recognitions.filter(r => activeEmpIds.has(r.employeeId)) : [];
+
+    return {
+      ...context,
+      data: {
+        ...context.data,
+        employees: activeEmps,
+        goals: filteredGoals,
+        submissions: filteredSubmissions,
+        achievements: filteredAchievements,
+        complaints: filteredComplaints,
+        appraisals: filteredAppraisals,
+        monthlyScores: filteredMonthlyScores,
+        manualAdjustments: filteredManualAdjustments,
+        notifications: filteredNotifications,
+        recognitions: filteredRecognitions
+      }
+    };
+  }
+
   return context;
 };
 
@@ -7173,20 +7207,148 @@ const DataProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const updateData = async (newData: AppData, skipLoadingOverlay?: boolean) => {
+    const isSettings = typeof window !== "undefined" && window.location.pathname === "/settings";
+    let finalEmployees = newData.employees;
+    let finalGoals = newData.goals;
+    let finalSubmissions = newData.submissions;
+    let finalAchievements = newData.achievements;
+    let finalComplaints = newData.complaints;
+    let finalAppraisals = newData.appraisals;
+    let finalMonthlyScores = newData.monthlyScores;
+    let finalManualAdjustments = newData.manualAdjustments;
+    let finalNotifications = newData.notifications;
+    let finalRecognitions = newData.recognitions;
+
+    if (!isSettings && data.employees) {
+      const inactiveEmps = data.employees.filter(e => !e.isActive);
+      const inactiveEmpIds = new Set(inactiveEmps.map(e => e.id));
+
+      const newEmpIds = new Set(newData.employees.map(e => e.id));
+      const restoredEmps = [...newData.employees];
+      for (const e of inactiveEmps) {
+        if (!newEmpIds.has(e.id)) restoredEmps.push(e);
+      }
+      finalEmployees = restoredEmps;
+
+      if (data.goals) {
+        const inactiveGoals = data.goals.filter(g => inactiveEmpIds.has(g.employeeId));
+        const newGoalIds = new Set(newData.goals.map(g => g.id));
+        const restoredGoals = [...newData.goals];
+        for (const g of inactiveGoals) {
+          if (!newGoalIds.has(g.id)) restoredGoals.push(g);
+        }
+        finalGoals = restoredGoals;
+      }
+
+      if (data.submissions) {
+        const inactiveSubmissions = data.submissions.filter(s => inactiveEmpIds.has(s.employeeId));
+        const newSubIds = new Set(newData.submissions.map(s => s.id));
+        const restoredSubmissions = [...newData.submissions];
+        for (const s of inactiveSubmissions) {
+          if (!newSubIds.has(s.id)) restoredSubmissions.push(s);
+        }
+        finalSubmissions = restoredSubmissions;
+      }
+
+      if (data.achievements) {
+        const inactiveAchievements = data.achievements.filter(a => inactiveEmpIds.has(a.employeeId));
+        const newAchIds = new Set(newData.achievements.map(a => a.id));
+        const restoredAchievements = [...newData.achievements];
+        for (const a of inactiveAchievements) {
+          if (!newAchIds.has(a.id)) restoredAchievements.push(a);
+        }
+        finalAchievements = restoredAchievements;
+      }
+
+      if (data.complaints) {
+        const inactiveComplaints = data.complaints.filter(c => inactiveEmpIds.has(c.employeeId));
+        const newCompIds = new Set(newData.complaints.map(c => c.id));
+        const restoredComplaints = [...newData.complaints];
+        for (const c of inactiveComplaints) {
+          if (!newCompIds.has(c.id)) restoredComplaints.push(c);
+        }
+        finalComplaints = restoredComplaints;
+      }
+
+      if (data.appraisals) {
+        const inactiveAppraisals = data.appraisals.filter(ap => inactiveEmpIds.has(ap.employeeId));
+        const newAprIds = new Set(newData.appraisals.map(ap => ap.id));
+        const restoredAppraisals = [...newData.appraisals];
+        for (const ap of inactiveAppraisals) {
+          if (!newAprIds.has(ap.id)) restoredAppraisals.push(ap);
+        }
+        finalAppraisals = restoredAppraisals;
+      }
+
+      if (data.monthlyScores) {
+        const inactiveMonthlyScores = data.monthlyScores.filter(ms => inactiveEmpIds.has(ms.employeeId));
+        const newScoreIds = new Set(newData.monthlyScores.map(ms => ms.id));
+        const restoredMonthlyScores = [...newData.monthlyScores];
+        for (const ms of inactiveMonthlyScores) {
+          if (!newScoreIds.has(ms.id)) restoredMonthlyScores.push(ms);
+        }
+        finalMonthlyScores = restoredMonthlyScores;
+      }
+
+      if (data.manualAdjustments) {
+        const inactiveManualAdjustments = data.manualAdjustments.filter(ma => inactiveEmpIds.has(ma.employeeId));
+        const newAdjIds = new Set(newData.manualAdjustments.map(ma => ma.id));
+        const restoredManualAdjustments = [...newData.manualAdjustments];
+        for (const ma of inactiveManualAdjustments) {
+          if (!newAdjIds.has(ma.id)) restoredManualAdjustments.push(ma);
+        }
+        finalManualAdjustments = restoredManualAdjustments;
+      }
+
+      if (data.notifications) {
+        const inactiveNotifications = data.notifications.filter(n => inactiveEmpIds.has(n.userId));
+        const newNotIds = new Set(newData.notifications.map(n => n.id));
+        const restoredNotifications = [...newData.notifications];
+        for (const n of inactiveNotifications) {
+          if (!newNotIds.has(n.id)) restoredNotifications.push(n);
+        }
+        finalNotifications = restoredNotifications;
+      }
+
+      if (data.recognitions) {
+        const inactiveRecognitions = data.recognitions.filter(r => inactiveEmpIds.has(r.employeeId));
+        const newRecIds = new Set(newData.recognitions.map(r => r.id));
+        const restoredRecognitions = [...newData.recognitions];
+        for (const r of inactiveRecognitions) {
+          if (!newRecIds.has(r.id)) restoredRecognitions.push(r);
+        }
+        finalRecognitions = restoredRecognitions;
+      }
+    }
+
+    const mergedData = {
+      ...newData,
+      employees: finalEmployees,
+      goals: finalGoals,
+      submissions: finalSubmissions,
+      achievements: finalAchievements,
+      complaints: finalComplaints,
+      appraisals: finalAppraisals,
+      monthlyScores: finalMonthlyScores,
+      manualAdjustments: finalManualAdjustments,
+      notifications: finalNotifications,
+      recognitions: finalRecognitions
+    };
+
     let loadingMsg = "Saving changes...";
     let successMsg = "Changes saved successfully";
 
     try {
       // 1. Detect Goal changes
-      if (newData.goals.length > data.goals.length) {
+      if (mergedData.goals.length > data.goals.length) {
         loadingMsg = "Assigning goal...";
         successMsg = "Goal assigned successfully";
-      } else if (newData.goals.length < data.goals.length) {
+      } else if (mergedData.goals.length < data.goals.length) {
         loadingMsg = "Removing goal...";
         successMsg = "Goal removed successfully";
       } else {
         // Look for modified goal
-        for (const newGoal of newData.goals) {
+        for (const newGoal of mergedData.goals) {
           const oldGoal = data.goals.find(g => g.id === newGoal.id);
           if (oldGoal && JSON.stringify(oldGoal) !== JSON.stringify(newGoal)) {
             if (newGoal.status !== oldGoal.status) {
@@ -7207,15 +7369,15 @@ const DataProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       // 2. Detect Weekly submissions changes
-      if (newData.submissions.length > data.submissions.length) {
+      if (mergedData.submissions.length > data.submissions.length) {
         loadingMsg = "Submitting weekly review...";
         successMsg = "Weekly review submitted successfully";
-      } else if (newData.submissions.length < data.submissions.length) {
+      } else if (mergedData.submissions.length < data.submissions.length) {
         loadingMsg = "Removing submission...";
         successMsg = "Submission removed successfully";
       } else {
         // Look for modified submission
-        for (const newSub of newData.submissions) {
+        for (const newSub of mergedData.submissions) {
           const oldSub = data.submissions.find(s => s.id === newSub.id);
           if (oldSub && JSON.stringify(oldSub) !== JSON.stringify(newSub)) {
             if (newSub.status !== oldSub.status) {
@@ -7233,14 +7395,14 @@ const DataProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       // 3. Detect Achievement changes
-      if (newData.achievements.length > data.achievements.length) {
+      if (mergedData.achievements.length > data.achievements.length) {
         loadingMsg = "Submitting achievement...";
         successMsg = "Achievement submitted successfully";
-      } else if (newData.achievements.length < data.achievements.length) {
+      } else if (mergedData.achievements.length < data.achievements.length) {
         loadingMsg = "Removing achievement...";
         successMsg = "Achievement removed successfully";
       } else {
-        for (const newAch of newData.achievements) {
+        for (const newAch of mergedData.achievements) {
           const oldAch = data.achievements.find(a => a.id === newAch.id);
           if (oldAch && JSON.stringify(oldAch) !== JSON.stringify(newAch)) {
             if (newAch.status !== oldAch.status) {
@@ -7258,14 +7420,14 @@ const DataProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       // 4. Detect Complaint/Infraction changes
-      if (newData.complaints.length > data.complaints.length) {
+      if (mergedData.complaints.length > data.complaints.length) {
         loadingMsg = "Registering complaint...";
         successMsg = "Complaint registered successfully";
-      } else if (newData.complaints.length < data.complaints.length) {
+      } else if (mergedData.complaints.length < data.complaints.length) {
         loadingMsg = "Removing complaint...";
         successMsg = "Complaint removed successfully";
       } else {
-        for (const newCmp of newData.complaints) {
+        for (const newCmp of mergedData.complaints) {
           const oldCmp = data.complaints.find(c => c.id === newCmp.id);
           if (oldCmp && JSON.stringify(oldCmp) !== JSON.stringify(newCmp)) {
             if (newCmp.status !== oldCmp.status) {
@@ -7283,18 +7445,18 @@ const DataProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       // 5. Detect Point Config changes
-      if (JSON.stringify(data.pointConfig) !== JSON.stringify(newData.pointConfig)) {
+      if (JSON.stringify(data.pointConfig) !== JSON.stringify(mergedData.pointConfig)) {
         loadingMsg = "Saving point configuration...";
         successMsg = "Point configuration saved successfully";
       }
 
       // 6. Detect Appraisal Cycles changes
-      if (data.appraisalCycles && newData.appraisalCycles) {
-        if (newData.appraisalCycles.length > data.appraisalCycles.length) {
+      if (data.appraisalCycles && mergedData.appraisalCycles) {
+        if (mergedData.appraisalCycles.length > data.appraisalCycles.length) {
           loadingMsg = "Creating appraisal cycle...";
           successMsg = "Appraisal cycle created successfully";
         } else {
-          for (const newCyc of newData.appraisalCycles) {
+          for (const newCyc of mergedData.appraisalCycles) {
             const oldCyc = data.appraisalCycles.find(c => c.id === newCyc.id);
             if (oldCyc && JSON.stringify(oldCyc) !== JSON.stringify(newCyc)) {
               loadingMsg = `Updating appraisal cycle: ${newCyc.name}...`;
@@ -7306,22 +7468,22 @@ const DataProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       // 7. Detect Manual Adjustments changes
-      if (newData.manualAdjustments && data.manualAdjustments) {
-        if (newData.manualAdjustments.length > data.manualAdjustments.length) {
+      if (mergedData.manualAdjustments && data.manualAdjustments) {
+        if (mergedData.manualAdjustments.length > data.manualAdjustments.length) {
           loadingMsg = "Applying manual credit/demerit...";
           successMsg = "Manual adjustment applied successfully";
         }
       }
 
       // 8. Detect Employee changes (e.g., active status, updating credentials, adding user)
-      if (newData.employees.length > data.employees.length) {
+      if (mergedData.employees.length > data.employees.length) {
         loadingMsg = "Registering new employee...";
         successMsg = "Employee registered successfully";
-      } else if (newData.employees.length < data.employees.length) {
+      } else if (mergedData.employees.length < data.employees.length) {
         loadingMsg = "Removing employee...";
         successMsg = "Employee removed successfully";
       } else {
-        for (const newEmp of newData.employees) {
+        for (const newEmp of mergedData.employees) {
           const oldEmp = data.employees.find(e => e.id === newEmp.id);
           if (oldEmp && JSON.stringify(oldEmp) !== JSON.stringify(newEmp)) {
             if (newEmp.isActive !== oldEmp.isActive) {
@@ -7337,12 +7499,12 @@ const DataProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       // 9. Detect Appraisal changes (reviews)
-      if (newData.appraisals && data.appraisals) {
-        if (newData.appraisals.length > data.appraisals.length) {
+      if (mergedData.appraisals && data.appraisals) {
+        if (mergedData.appraisals.length > data.appraisals.length) {
           loadingMsg = "Submitting performance appraisal...";
           successMsg = "Performance appraisal submitted successfully";
         } else {
-          for (const newApr of newData.appraisals) {
+          for (const newApr of mergedData.appraisals) {
             const oldApr = data.appraisals.find(a => a.id === newApr.id);
             if (oldApr && JSON.stringify(oldApr) !== JSON.stringify(newApr)) {
               loadingMsg = "Submitting performance appraisal...";
@@ -7365,8 +7527,8 @@ const DataProvider = ({ children }: { children: React.ReactNode }) => {
     const startTime = Date.now();
     try {
       const sortedNewData = {
-        ...newData,
-        appraisalCycles: sortAppraisalCycles(newData.appraisalCycles || [])
+        ...mergedData,
+        appraisalCycles: sortAppraisalCycles(mergedData.appraisalCycles || [])
       };
       setData(sortedNewData);
       await API.saveData(sortedNewData);

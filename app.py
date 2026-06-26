@@ -37,7 +37,7 @@ def serialized_route(f):
 
 @app.route("/", methods=["GET"])
 def home():
-    return jsonify({"status": "active", "message": "StrataPerform Backend API is running."})
+    return jsonify({"status": "active", "message": "Insight360x Backend API is running."})
 
 @app.route("/api/health", methods=["GET"])
 def health():
@@ -617,7 +617,7 @@ def post_db():
                     to_name = recipient.get("name", "User")
 
                     # Create dynamic HTML body
-                    subject = f"StrataPerform: {title}"
+                    subject = f"Insight360x: {title}"
                     html_content = f"""
                     <html>
                       <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 20px; background-color: #f8fafc;">
@@ -631,7 +631,7 @@ def post_db():
                             You can view the full details on your dashboard.
                           </p>
                           <div style="color: #94a3b8; font-size: 11px; border-top: 1px solid #f1f5f9; padding-top: 15px; margin-top: 30px; text-align: center;">
-                            This is an automated system notification from StrataPerform. Please do not reply directly to this email.
+                            This is an automated system notification from Insight360x. Please do not reply directly to this email.
                           </div>
                         </div>
                       </body>
@@ -722,8 +722,8 @@ import json
 
 def send_brevo_email(to_email, to_name, subject, html_content):
     api_key = os.getenv("BREVO_API_KEY")
-    sender_email = os.getenv("BREVO_SENDER_EMAIL", "no-reply@strataperform.com")
-    sender_name = os.getenv("BREVO_SENDER_NAME", "StrataPerform")
+    sender_email = os.getenv("BREVO_SENDER_EMAIL", "no-reply@insight360x.com")
+    sender_name = os.getenv("BREVO_SENDER_NAME", "Insight360x")
 
     if not api_key:
         print("*" * 60, flush=True)
@@ -781,20 +781,20 @@ def api_send_temp_password():
     name = data.get("name", "User")
     temp_password = data.get("tempPassword")
 
-    subject = "Welcome to StrataPerform - Your Temporary Password"
+    subject = "Welcome to Insight360x - Your Temporary Password"
     html_content = f"""
     <html>
       <body style="font-family: Arial, sans-serif; color: #333;">
         <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
-          <h2 style="color: #4f46e5; border-bottom: 2px solid #f3f4f6; padding-bottom: 10px;">Welcome to StrataPerform</h2>
+          <h2 style="color: #4f46e5; border-bottom: 2px solid #f3f4f6; padding-bottom: 10px;">Welcome to Insight360x</h2>
           <p>Hello {name},</p>
-          <p>A new employee account has been created for you in StrataPerform.</p>
+          <p>A new employee account has been created for you in Insight360x.</p>
           <p>Please log in using the temporary credentials below:</p>
           <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0; font-size: 16px; font-weight: bold; font-family: monospace; text-align: center;">
             Password: {temp_password}
           </div>
           <p style="color: #ef4444; font-weight: bold;">Important: You will be required to change your password immediately upon your first login.</p>
-          <p>Regards,<br>StrataPerform Admin Team</p>
+          <p>Regards,<br>Insight360x Admin Team</p>
         </div>
       </body>
     </html>
@@ -842,13 +842,13 @@ def api_forgot_password():
             <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
               <h2 style="color: #4f46e5; border-bottom: 2px solid #f3f4f6; padding-bottom: 10px;">Reset Your Password</h2>
               <p>Hello {name},</p>
-              <p>We received a request to reset your password for your StrataPerform account.</p>
+              <p>We received a request to reset your password for your Insight360x account.</p>
               <p>Your 6-digit One-Time Password (OTP) is:</p>
               <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0; font-size: 24px; font-weight: bold; font-family: monospace; text-align: center; letter-spacing: 5px; color: #4f46e5;">
                 {otp}
               </div>
               <p>This code will expire in 10 minutes. If you did not request a password reset, please ignore this email.</p>
-              <p>Regards,<br>StrataPerform Security Team</p>
+              <p>Regards,<br>Insight360x Security Team</p>
             </div>
           </body>
         </html>
@@ -999,6 +999,15 @@ def sync_sharepoint():
             # Parse designation: "crc6f_designation"
             designation = (row.get("crc6f_designation") or "").strip()
 
+            # Parse profile picture: "crc6f_profilepicture"
+            raw_pic = (row.get("crc6f_profilepicture") or "").strip()
+            profile_picture = ""
+            if raw_pic:
+                if raw_pic.startswith("data:"):
+                    profile_picture = raw_pic
+                else:
+                    profile_picture = f"data:image/jpeg;base64,{raw_pic}"
+
             if emp_id in db_emp_ids:
                 # Check if there are differences before updating
                 db_emp = db_emp_ids[emp_id]
@@ -1006,7 +1015,8 @@ def sync_sharepoint():
                     db_emp.get("is_active") != is_active or
                     db_emp.get("name") != full_name or
                     db_emp.get("email") != email or
-                    db_emp.get("department") != designation
+                    db_emp.get("department") != designation or
+                    db_emp.get("profile_picture") != profile_picture
                 )
 
                 if needs_update:
@@ -1014,7 +1024,8 @@ def sync_sharepoint():
                         "is_active": is_active,
                         "name": full_name,
                         "email": email,
-                        "department": designation
+                        "department": designation,
+                        "profile_picture": profile_picture
                     }).eq("emp_id", emp_id).execute()
                     updated_count += 1
             else:
@@ -1035,7 +1046,7 @@ def sync_sharepoint():
                     "password": temp_pass,
                     "is_temp_password": True,
                     "badges": [],
-                    "profile_picture": ""
+                    "profile_picture": profile_picture
                 }).execute()
                 inserted_count += 1
 

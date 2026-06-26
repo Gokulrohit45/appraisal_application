@@ -5,6 +5,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useRef } from "react";
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from "react-router-dom";
+import logoImg from "./logo.jpg";
 import { 
   BarChart3, 
   Target, 
@@ -150,6 +151,15 @@ const formatEmpName = (emp?: Employee | null): string => {
 const formatEmpNameById = (id: string, employees: Employee[]): string => {
   const emp = employees.find(e => e.id === id);
   return formatEmpName(emp);
+};
+
+const getInitials = (name?: string | null): string => {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
+  }
+  return name.trim().charAt(0).toUpperCase();
 };
 
 // --- API Service ---
@@ -522,7 +532,7 @@ const AdminDashboardView = () => {
               <div key={emp.id} className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm hover:border-indigo-200 transition-all group">
                  <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white text-lg font-black group-hover:scale-110 transition-transform">
-                       {emp.name.charAt(0)}
+                       {getInitials(emp.name)}
                     </div>
                     <div>
                        <p className="text-xs font-black text-slate-900">{formatEmpName(emp)}</p>
@@ -1430,7 +1440,7 @@ const TeamGoalsView = () => {
              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 w-full">
                 <div className="flex items-center gap-6">
                    <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center font-bold text-slate-400 border border-slate-100 shrink-0">
-                      {data.employees.find(e => e.id === goal.employeeId)?.name.charAt(0)}
+                      {getInitials(data.employees.find(e => e.id === goal.employeeId)?.name)}
                    </div>
                    <div>
                      <h4 className="font-bold text-slate-900">{goal.title}</h4>
@@ -2300,7 +2310,7 @@ const MonthlyAppraisalDetails = ({ onBack, onSelectEmployee, cycleId }: { onBack
                              <td className="px-6 py-4">
                                 <div className="flex items-center gap-3">
                                   <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-900 font-bold text-xs">
-                                    {emp.name.charAt(0)}
+                                    {getInitials(emp.name)}
                                   </div>
                                   <div>
                                     <p className="text-xs font-black text-slate-900">{formatEmpName(emp)}</p>
@@ -2697,7 +2707,7 @@ const EmployeeDrillDownView = ({ empId, cycle }: { empId: string; cycle: any }) 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-6">
           <div className="w-20 h-20 bg-slate-900 rounded-2xl flex items-center justify-center text-white text-3xl font-black shadow-2xl">
-            {emp.name.charAt(0)}
+            {getInitials(emp.name)}
           </div>
           <div>
             <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">{formatEmpName(emp)}</h2>
@@ -4337,11 +4347,11 @@ const Sidebar = () => {
       <aside className="fixed inset-y-0 left-0 w-64 bg-[#f8fafc] border-r border-slate-200 hidden xl:flex flex-col z-40">
         <div className="p-8">
           <div className="flex items-center gap-3 mb-10">
-            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/20">
-               <BarChart3 className="text-white w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg overflow-hidden bg-white">
+               <img src={logoImg} className="w-full h-full object-cover" alt="Insight360x Logo" />
             </div>
             <div>
-              <h2 className="text-sm font-black tracking-widest leading-none uppercase text-slate-900">STRATA<span className="text-indigo-600">PERFORM</span></h2>
+              <h2 className="text-sm font-black tracking-widest leading-none uppercase text-slate-900">INSIGHT<span className="text-indigo-600">360x</span></h2>
               <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-widest">Performance Engine</p>
             </div>
           </div>
@@ -4375,7 +4385,7 @@ const Sidebar = () => {
                  {currentUserProfilePicture ? (
                    <img src={currentUserProfilePicture} className="w-full h-full object-cover" alt="Profile" />
                  ) : (
-                   currentUser?.name.charAt(0) || "?"
+                   getInitials(currentUser?.name)
                  )}
                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                    <Camera className="w-3.5 h-3.5 text-white" />
@@ -4463,7 +4473,7 @@ const Sidebar = () => {
                  {currentUserProfilePicture ? (
                    <img src={currentUserProfilePicture} className="w-full h-full object-cover" alt="Profile" />
                  ) : (
-                   currentUser?.name.charAt(0) || "?"
+                   getInitials(currentUser?.name)
                  )}
               </div>
 
@@ -4553,7 +4563,7 @@ const Header = () => {
     <header className="fixed top-0 left-0 xl:left-64 right-0 h-20 bg-[#f0f2f5]/80 backdrop-blur-md z-[50] flex items-center justify-between px-8">
        <div className="xl:hidden flex items-center gap-4">
           <Menu className="w-6 h-6 text-slate-600" />
-          <h1 className="font-black uppercase tracking-widest text-xs text-slate-900">STRATA<span className="text-indigo-600">PERFORM</span></h1>
+          <h1 className="font-black uppercase tracking-widest text-xs text-slate-900">INSIGHT<span className="text-indigo-600">360x</span></h1>
        </div>
        <div className="hidden md:flex flex-1 items-center justify-end gap-8">
 
@@ -4764,7 +4774,7 @@ const RecognitionView = () => {
                        </div>
                        <div className="col-span-5 flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white text-[10px] font-black">
-                             {emp.name.charAt(0)}
+                             {getInitials(emp.name)}
                           </div>
                           <div>
                              <p className="text-sm font-bold text-slate-900">{formatEmpName(emp)}</p>
@@ -4877,7 +4887,7 @@ const HierarchyNode = ({ emp, employees, level = 0 }: { emp: Employee; employees
               "w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-inner shrink-0",
               emp.role === "HR" ? "bg-rose-500" : emp.role === "MANAGEMENT" ? "bg-indigo-600" : "bg-slate-400"
             )}>
-              {emp.name.charAt(0)}
+              {getInitials(emp.name)}
             </div>
             <div className="min-w-0">
                <h4 className="font-bold text-slate-900 text-sm truncate">{emp.name}</h4>
@@ -5550,7 +5560,7 @@ const SettingsView = () => {
                              {form.profilePicture ? (
                                <img src={form.profilePicture} className="w-full h-full object-cover" alt="Preview" />
                              ) : (
-                               form.name ? form.name.charAt(0).toUpperCase() : "?"
+                               getInitials(form.name)
                              )}
                              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                <Camera className="w-6 h-6 text-white" />
@@ -5709,7 +5719,7 @@ const SettingsView = () => {
                           <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-white shadow-inner shrink-0", 
                             emp.role === "HR" ? "bg-rose-500" : "bg-slate-400"
                           )}>
-                             {emp.name.charAt(0)}
+                             {getInitials(emp.name)}
                           </div>
                           <div className="min-w-0 flex-1">
                              <h4 className="font-bold text-slate-900 flex items-center gap-2 truncate">
@@ -5843,7 +5853,7 @@ const SettingsView = () => {
                                   </td>
                                   <td className="py-4">
                                      <div className="flex items-center gap-2">
-                                        <div className="w-6 h-6 rounded-lg bg-slate-200 flex items-center justify-center text-[10px] font-bold">{actor?.name.charAt(0)}</div>
+                                        <div className="w-6 h-6 rounded-lg bg-slate-200 flex items-center justify-center text-[10px] font-bold">{getInitials(actor?.name)}</div>
                                         <span className="text-[11px] font-bold text-slate-700">{actor?.name || "System"}</span>
                                      </div>
                                   </td>
@@ -6355,7 +6365,7 @@ const PerformanceReviewView = () => {
                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div className="flex items-center gap-6">
                        <div className="w-16 h-16 bg-slate-900 rounded-[2rem] flex items-center justify-center text-white font-black text-xl shadow-xl">
-                          {emp.name.charAt(0)}
+                          {getInitials(emp.name)}
                        </div>
                        <div>
                           <h4 className="text-lg font-black text-slate-900">{emp.name}</h4>

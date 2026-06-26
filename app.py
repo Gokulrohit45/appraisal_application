@@ -970,10 +970,18 @@ def sync_sharepoint():
         db_emp_ids = {e.get("emp_id"): e for e in db_emps if e.get("emp_id")}
 
         updated_count = 0
-        for row in rows:
+        inserted_count = 0
+        import time
+        import secrets
+        import string
+
+        current_time_ms = int(time.time() * 1000)
+        alphabet = string.ascii_letters + string.digits
+
+        for i, row in enumerate(rows):
             # We match by the employee ID column in the CSV: "crc6f_employeeid"
             emp_id = (row.get("crc6f_employeeid") or "").strip()
-            if not emp_id or emp_id not in db_emp_ids:
+            if not emp_id:
                 continue
 
             # Parse active status: "crc6f_activeflag"
@@ -991,28 +999,52 @@ def sync_sharepoint():
             # Parse designation: "crc6f_designation"
             designation = (row.get("crc6f_designation") or "").strip()
 
-            # Check if there are differences before updating
-            db_emp = db_emp_ids[emp_id]
-            needs_update = (
-                db_emp.get("is_active") != is_active or
-                db_emp.get("name") != full_name or
-                db_emp.get("email") != email or
-                db_emp.get("department") != designation
-            )
+            if emp_id in db_emp_ids:
+                # Check if there are differences before updating
+                db_emp = db_emp_ids[emp_id]
+                needs_update = (
+                    db_emp.get("is_active") != is_active or
+                    db_emp.get("name") != full_name or
+                    db_emp.get("email") != email or
+                    db_emp.get("department") != designation
+                )
 
-            if needs_update:
-                supabase.table("employees").update({
-                    "is_active": is_active,
+                if needs_update:
+                    supabase.table("employees").update({
+                        "is_active": is_active,
+                        "name": full_name,
+                        "email": email,
+                        "department": designation
+                    }).eq("emp_id", emp_id).execute()
+                    updated_count += 1
+            else:
+                # Insert new employee!
+                new_id = f"e-{current_time_ms + i}"
+                temp_pass = "".join(secrets.choice(alphabet) for _ in range(8)) + "!"
+                
+                supabase.table("employees").insert({
+                    "id": new_id,
+                    "emp_id": emp_id,
                     "name": full_name,
                     "email": email,
-                    "department": designation
-                }).eq("emp_id", emp_id).execute()
-                updated_count += 1
+                    "department": designation,
+                    "role": "EMPLOYEE",
+                    "credits": 0,
+                    "compliance": 0,
+                    "is_active": is_active,
+                    "password": temp_pass,
+                    "is_temp_password": True,
+                    "badges": [],
+                    "profile_picture": ""
+                }).execute()
+                inserted_count += 1
 
+        message = f"Successfully synced with SharePoint. Updated {updated_count} and inserted {inserted_count} employees."
         return jsonify({
             "success": True,
             "updated": updated_count,
-            "message": f"Successfully synced with SharePoint. Updated {updated_count} employees."
+            "inserted": inserted_count,
+            "message": message
         })
 
     except Exception as e:

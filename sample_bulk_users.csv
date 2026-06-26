@@ -1,4 +1,4 @@
-Name,Email,EmployeeID,Department,Role
+Name,Email,EmployeeID,Designation,Role
 Alice Vance,alice@example.com,EMP101,Engineering,EMPLOYEE
 Bob Marley,bob@example.com,EMP102,Product,MANAGEMENT
 Charlie Green,charlie@example.com,EMP103,HR,HR

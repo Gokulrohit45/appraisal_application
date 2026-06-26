@@ -52,7 +52,10 @@ import {
   User,
   Key,
   Eye,
-  EyeOff
+  EyeOff,
+  Camera,
+  Edit2,
+  RefreshCw
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { format, startOfWeek, addDays, startOfMonth, endOfMonth, subMonths, addMonths } from "date-fns";
@@ -77,6 +80,7 @@ const DataContext = createContext<{
   createAuditLog: (action: AuditLog["action"], targetId: string, details: string, actorId?: string) => AuditLog;
   loading: boolean;
   showToast: (message: string, type?: 'success' | 'error') => void;
+  reloadData: () => Promise<void>;
 } | null>(null);
 
 const useAuth = () => {
@@ -106,7 +110,7 @@ const parseLocalDate = (dateVal: string | Date | undefined | null): Date => {
 
 const formatEmpName = (emp?: Employee | null): string => {
   if (!emp) return "";
-  return emp.empId ? `[${emp.empId}] ${emp.name}` : emp.name;
+  return emp.name;
 };
 
 const formatEmpNameById = (id: string, employees: Employee[]): string => {
@@ -253,7 +257,7 @@ const getPerformanceEvents = (data: AppData, employeeId: string, startDate: Date
   });
 
   // Complaints (Demerits)
-  data.complaints.filter(c => c.employeeId === employeeId && (c.status === "Validated" || c.status === "Registered")).forEach(c => {
+  data.complaints.filter(c => c.employeeId === employeeId && c.status === "Validated").forEach(c => {
     if (parseLocalDate(c.date) >= startDate && parseLocalDate(c.date) <= endDate) {
       events.push({ date: c.date, title: `Infraction: ${c.type}`, type: 'complaint', impact: -c.penaltyPoints });
     }
@@ -352,27 +356,27 @@ const AdminDashboardView = () => {
   const totalEmployees = data.employees.length;
   const activeEmployees = data.employees.filter(e => e.isActive).length;
   const totalCredits = data.employees.reduce((acc, e) => acc + e.credits, 0);
-  const totalComplaints = data.complaints.length;
+  const totalComplaints = data.complaints.filter(c => c.status === "Registered").length;
   const completedGoals = data.goals.filter(g => g.status === "Approved").length;
   
   const topPerformers = [...data.employees].sort((a, b) => b.credits - a.credits).slice(0, 5);
   const lowPerformers = [...data.employees].sort((a, b) => a.credits - b.credits).slice(0, 5);
-
+ 
   const deptPerformance = Array.from(new Set(data.employees.map(e => e.department))).map(dept => {
     const deptEmps = data.employees.filter(e => e.department === dept);
     const avg = Math.round(deptEmps.reduce((acc, e) => acc + e.credits, 0) / (deptEmps.length || 1));
     return { name: dept, avg, count: deptEmps.length };
   });
-
+ 
   return (
     <div className="space-y-6">
        <header className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-black tracking-tighter text-slate-900 uppercase">Operational Nucleus</h1>
+          <h1 className="text-3xl font-black tracking-tighter text-slate-900 uppercase">Organization Overview</h1>
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Intelligence Dashboard • {format(new Date(), "MMMM yyyy")}</p>
         </div>
       </header>
-
+ 
       {/* Bento Grid Refactor */}
       <div className="grid grid-cols-12 gap-4 auto-rows-min">
          {/* Key Stats Row */}
@@ -386,17 +390,17 @@ const AdminDashboardView = () => {
                <TrendingUp className="w-4 h-4 text-emerald-400" />
             </div>
          </div>
-
+ 
          <div className="col-span-12 lg:col-span-3 bg-white rounded-2xl p-8 border border-slate-200 flex flex-col justify-between shadow-sm">
             <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Global Efficiency</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Points</p>
               <h2 className="text-5xl font-black text-slate-900 tabular-nums">{totalCredits}</h2>
             </div>
             <div className="mt-4 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
                <div className="bg-indigo-600 h-full" style={{ width: `${Math.min(100, (totalCredits / 1000) * 100)}%` }} />
             </div>
          </div>
-
+ 
          <div className="col-span-12 lg:col-span-3 bg-indigo-50 rounded-2xl p-8 border border-indigo-100 flex flex-col justify-between">
             <div>
               <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest mb-1">Goal completion</p>
@@ -404,17 +408,21 @@ const AdminDashboardView = () => {
             </div>
             <p className="mt-4 text-[9px] text-indigo-600 font-black uppercase tracking-widest ">+12% vs last month</p>
          </div>
-
+ 
          <div className="col-span-12 lg:col-span-3 bg-rose-50 rounded-2xl p-8 border border-rose-100 flex flex-col justify-between">
             <div>
-              <p className="text-[10px] font-bold text-rose-600 uppercase tracking-widest mb-1">Resolution Queue</p>
+              <p className="text-[10px] font-bold text-rose-600 uppercase tracking-widest mb-1">Total Complaints</p>
               <h2 className="text-5xl font-black text-rose-900 tabular-nums">{totalComplaints}</h2>
             </div>
-            <Badge variant="danger">Needs intervention</Badge>
+            {totalComplaints > 0 ? (
+              <Badge variant="danger">Needs intervention</Badge>
+            ) : (
+              <Badge variant="success">All Clear</Badge>
+            )}
          </div>
 
          {/* Middle Row */}
-         <Card className="col-span-12 lg:col-span-8 p-0 overflow-hidden" title="Departmental Performance Distribution">
+         <Card className="col-span-12 lg:col-span-8 p-0 overflow-hidden" title="Designation-based Performance Distribution">
             <div className="px-8 pb-8 space-y-5">
                {deptPerformance.map(dept => (
                  <div key={dept.name} className="group">
@@ -469,7 +477,7 @@ const AdminDashboardView = () => {
 
          {/* Bottom Talent Insight Row */}
          <div className="col-span-12 flex items-center justify-between mt-8 mb-4 px-2">
-            <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-900">Talent Momentum Grid</h3>
+            <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-900">Top Performers</h3>
             <div className="flex gap-2">
                <Badge variant="success">Rising Stars</Badge>
             </div>
@@ -525,7 +533,7 @@ const UserDashboardView = () => {
   const completedGoals = userGoals.filter(g => g.status === "Approved" || g.status === "Completed").length;
   const totalGoals = userGoals.length;
   const recentSubmissions = userSubmissions.length;
-  const activeComplaints = data.complaints.filter(c => c.employeeId === user.id).length;
+  const activeComplaints = data.complaints.filter(c => c.employeeId === user.id && c.status !== "Dismissed").length;
 
   const handleReportAchievement = async () => {
     if (!newAchievement.title) return;
@@ -672,7 +680,7 @@ const UserDashboardView = () => {
 
       <header className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 uppercase">Mission Control</h1>
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 uppercase">Overview</h1>
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mt-1">Operational Overview • {format(new Date(), "MMM dd")}</p>
         </div>
         <div className="flex gap-4">
@@ -691,7 +699,7 @@ const UserDashboardView = () => {
           <div className="bg-slate-900 rounded-[2.5rem] p-10 flex flex-col justify-between text-white shadow-2xl relative overflow-hidden group min-h-[480px]">
             <div className="absolute top-[-20%] right-[-20%] w-64 h-64 bg-indigo-500 rounded-full blur-[80px] opacity-20 group-hover:opacity-30 transition-opacity"></div>
             <div>
-              <p className="text-xs font-bold text-indigo-300 uppercase tracking-[0.2em] mb-4">Efficiency Rating</p>
+              <p className="text-xs font-bold text-indigo-300 uppercase tracking-[0.2em] mb-4">Total Points</p>
               <h2 className="text-9xl font-black tracking-tighter tabular-nums leading-none">{(user.credits).toLocaleString()}</h2>
               <div className="mt-8 flex">
                 <Badge variant="success" className="px-4 py-1.5 rounded-full bg-emerald-500/20 text-emerald-400 border-none">
@@ -712,135 +720,19 @@ const UserDashboardView = () => {
                 </div>
                 <div className="text-right">
                   <p className="text-[10px] font-bold uppercase text-slate-400 tracking-widest mb-1">Issue Index</p>
-                  <p className="text-2xl font-black text-rose-400 tracking-tight">{data.complaints.filter(c => c.employeeId === user.id).length}</p>
+                  <p className="text-2xl font-black text-rose-400 tracking-tight">{data.complaints.filter(c => c.employeeId === user.id && c.status !== "Dismissed").length}</p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Performance Metrics Card */}
-          <Card className="bg-white border-slate-200 rounded-[2.5rem] p-8" title="Performance Metrics">
-             <div className="grid grid-cols-1 gap-6">
-                <div className="flex items-center gap-4 group/item">
-                   <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center group-hover/item:scale-110 transition-transform">
-                      <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                   </div>
-                   <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Goal Completion</p>
-                      <p className="text-sm font-black text-slate-900">{completedGoals} / {totalGoals} Tasks</p>
-                   </div>
-                </div>
-                <div className="flex items-center gap-4 group/item">
-                   <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center group-hover/item:scale-110 transition-transform">
-                      <TrendingUp className="w-5 h-5 text-indigo-500" />
-                   </div>
-                   <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Execution Velocity</p>
-                      <p className="text-sm font-black text-slate-900">{avgProgress}% Average</p>
-                   </div>
-                </div>
-                <div className="flex items-center gap-4 group/item">
-                   <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center group-hover/item:scale-110 transition-transform">
-                      <History className="w-5 h-5 text-amber-500" />
-                   </div>
-                   <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Reviews Logged</p>
-                      <p className="text-sm font-black text-slate-900">{recentSubmissions} Weekly Syncs</p>
-                   </div>
-                </div>
-                <div className="flex items-center gap-4 group/item">
-                   <div className="w-12 h-12 rounded-2xl bg-rose-50 flex items-center justify-center group-hover/item:scale-110 transition-transform">
-                      <AlertCircle className="w-5 h-5 text-rose-500" />
-                   </div>
-                   <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Incident Reports</p>
-                      <p className="text-sm font-black text-slate-900">{activeComplaints} Active</p>
-                   </div>
-                </div>
-             </div>
-          </Card>
-
-          {user.role !== "EMPLOYEE" && (
-            <div className={cn(
-              "rounded-[2.5rem] p-8 flex items-center justify-between shadow-xl text-white group overflow-hidden relative min-h-[140px]",
-              activeYearlyCycle ? "bg-indigo-600 shadow-indigo-200" : "bg-slate-100"
-            )}>
-              {activeYearlyCycle && <div className="absolute top-[-50%] left-[-20%] w-48 h-48 bg-white/20 rounded-full blur-[60px]"></div>}
-              <div className="relative z-10">
-                <p className={cn("text-xs font-black uppercase tracking-widest leading-none", activeYearlyCycle ? "text-white" : "text-slate-400")}>Yearly Appraisal</p>
-                <p className={cn("text-[9px] uppercase font-bold tracking-widest mt-2", activeYearlyCycle ? "text-white/80" : "text-slate-300")}>
-                  {activeYearlyCycle ? "Review Window Open" : "Standby Mode"}
-                </p>
-              </div>
-              {activeYearlyCycle && (
-                <Link to="/appraisal" className="relative z-10 bg-white text-indigo-600 px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:-translate-y-1 transition-transform">
-                  Launch Review
-                </Link>
-              )}
-            </div>
-          )}
         </div>
 
-        {/* Right Column: Weekly Performance & Goals */}
+        {/* Right Column: Goals & Metrics */}
         <div className="col-span-12 lg:col-span-8 space-y-8">
-          
-          {/* Weekly Performance Core - NOW ON RIGHT */}
-          {user.role !== "EMPLOYEE" && (
-            <Card className="border-none bg-white p-10 group overflow-hidden relative" title="Weekly Performance Core">
-               <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
-                  <Shield className="w-32 h-32 text-indigo-600" />
-               </div>
-               <div className="max-w-xl relative z-10">
-                  <div className="flex items-center gap-6 mb-8">
-                     <div className="w-16 h-16 bg-slate-900 rounded-3xl flex items-center justify-center text-white shadow-2xl">
-                        <ClipboardList className="w-8 h-8" />
-                     </div>
-                     <div>
-                       <p className="text-[11px] font-bold text-indigo-600 uppercase tracking-widest mb-1">Active Cycle: {activeMonthlyCycle ? `${format(new Date(activeMonthlyCycle.startDate), "MMMM")}` : "Off-Cycle"}</p>
-                       <h4 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Weekly Performance Sync</h4>
-                     </div>
-                  </div>
-                  <p className="text-sm text-slate-500 font-medium leading-relaxed mb-10">
-                     Submit your weekly progress, blockers, and professional achievements to maintain your recognition momentum. Verified wins are auto-posted to your Monthly Appraisal.
-                  </p>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
-                     <div className="bg-slate-50 border border-slate-100 rounded-[2rem] p-6 flex flex-col justify-center">
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className={cn("w-2.5 h-2.5 rounded-full", activeMonthlyCycle ? "bg-emerald-400 animate-pulse" : "bg-slate-300")}></div>
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">System Status</p>
-                        </div>
-                        <p className="text-xs font-black text-slate-900 uppercase tracking-tight">{activeMonthlyCycle ? "Data Collection Active" : "Input Gateway Closed"}</p>
-                     </div>
-                     <div className="bg-indigo-50 border border-indigo-100 rounded-[2rem] p-6 flex flex-col justify-center">
-                        <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-2">Reporting Deadline</p>
-                        <p className="text-xs font-black text-indigo-900 uppercase tracking-tight">Every Sunday @ 11:59PM</p>
-                     </div>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row gap-4">
-                     <Link 
-                       to="/submissions" 
-                       state={{ openNew: true }}
-                       className={cn(
-                         "flex-1 py-5 bg-slate-900 text-white rounded-3xl text-[10px] font-black uppercase tracking-[0.2em] hover:shadow-2xl hover:-translate-y-1 transition-all flex items-center justify-center gap-3",
-                         !activeMonthlyCycle && "opacity-30 pointer-events-none"
-                       )}
-                     >
-                       Submit Weekly Update <ArrowRight className="w-4 h-4" />
-                     </Link>
-                     <Link to="/submissions" className="flex-1 py-5 border-2 border-slate-100 rounded-3xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-slate-50 transition-colors text-center">Historical Logs</Link>
-                  </div>
-               </div>
-            </Card>
-          )}
-
           <div className="grid grid-cols-12 gap-8">
             {/* Goal Management */}
-            <Card className={cn(
-              "bg-white rounded-[2.5rem] p-8",
-              user.role === "EMPLOYEE" ? "col-span-12" : "col-span-12 lg:col-span-7"
-            )} title="Goal Management">
+            <Card className="bg-white rounded-[2.5rem] p-8 col-span-12" title="Goal Management">
               <div className="flex justify-between items-center mb-8 border-b border-slate-100 pb-4">
                 <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Global Progress</p>
                 <div className="flex items-center gap-2">
@@ -850,25 +742,25 @@ const UserDashboardView = () => {
               </div>
               <div className="space-y-8">
                 {dashboardGoals.slice(0, 3).map(goal => (
-                  <div key={goal.id} className="group/goal">
-                    <div className="flex justify-between text-[10px] mb-3 font-black uppercase tracking-[0.1em]">
-                       <div className="flex flex-col gap-1">
-                        <span className="text-slate-900 truncate max-w-[150px]">{goal.title}</span>
-                        <div className="flex items-center gap-2">
-                           <div className={cn("w-1.5 h-1.5 rounded-full", goal.status === "Approved" ? "bg-emerald-500" : "bg-slate-300")}></div>
-                           <span className="text-slate-400 text-[8px]">{goal.status}</span>
+                   <div key={goal.id} className="group/goal">
+                     <div className="flex justify-between text-[10px] mb-3 font-black uppercase tracking-[0.1em]">
+                        <div className="flex flex-col gap-1">
+                         <span className="text-slate-900 truncate max-w-[150px]">{goal.title}</span>
+                         <div className="flex items-center gap-2">
+                            <div className={cn("w-1.5 h-1.5 rounded-full", goal.status === "Approved" ? "bg-emerald-500" : "bg-slate-300")}></div>
+                            <span className="text-slate-400 text-[8px]">{goal.status}</span>
+                         </div>
                         </div>
-                       </div>
-                      <span className="text-indigo-600">{goal.progress}%</span>
-                    </div>
-                    <div className="w-full bg-slate-50 h-3 rounded-full overflow-hidden p-[2px]">
-                      <motion.div 
-                        initial={{ width: 0 }}
-                        animate={{ width: `${goal.progress}%` }}
-                        className={cn("h-full rounded-full transition-all duration-1000", goal.progress > 80 ? "bg-indigo-600" : "bg-slate-300")}
-                      />
-                    </div>
-                  </div>
+                       <span className="text-indigo-600">{goal.progress}%</span>
+                     </div>
+                     <div className="w-full bg-slate-50 h-3 rounded-full overflow-hidden p-[2px]">
+                       <motion.div 
+                         initial={{ width: 0 }}
+                         animate={{ width: `${goal.progress}%` }}
+                         className={cn("h-full rounded-full transition-all duration-1000", goal.progress > 80 ? "bg-indigo-600" : "bg-slate-300")}
+                       />
+                     </div>
+                   </div>
                 ))}
                 {dashboardGoals.length > 3 && (
                   <div className="pt-4 text-center">
@@ -877,44 +769,49 @@ const UserDashboardView = () => {
                 )}
               </div>
             </Card>
-
-            {/* Performance Velocity */}
-            {user.role !== "EMPLOYEE" && (
-              <Card className="col-span-12 lg:col-span-5 bg-white rounded-[2.5rem] p-8 flex flex-col items-center justify-center text-center" title="Merit Velocity">
-                <div className="relative w-40 h-40 flex items-center justify-center mb-6">
-                  <svg className="w-full h-full transform -rotate-90">
-                    <circle cx="80" cy="80" r="72" stroke="currentColor" strokeWidth="12" fill="transparent" className="text-slate-50" />
-                    <motion.circle 
-                      cx="80" cy="80" r="72" 
-                      stroke="currentColor" strokeWidth="12" fill="transparent" 
-                      strokeDasharray="452.3"
-                      initial={{ strokeDashoffset: 452.3 }}
-                      animate={{ strokeDashoffset: 452.3 - (452.3 * user.credits/1000) }}
-                      className="text-slate-900" 
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                     <div className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center mb-2 shadow-xl shadow-slate-200">
-                        <Zap className="w-5 h-5 fill-current" />
-                     </div>
-                     <span className="text-3xl font-black text-slate-900 tracking-tighter tabular-nums">{(user.credits/10).toFixed(0)}</span>
-                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">M-Index</span>
-                  </div>
-                </div>
-                <div className="w-full space-y-4">
-                   <div className="flex justify-between items-end text-[9px] font-black uppercase tracking-widest text-slate-400">
-                      <span>Policy Compliance</span>
-                      <span className="text-slate-900 text-xs">{user.compliance}%</span>
-                   </div>
-                   <div className="w-full bg-slate-50 h-2 rounded-full overflow-hidden p-[1px]">
-                      <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${user.compliance}%` }} />
-                   </div>
-                   <p className="text-[10px] font-medium text-slate-400 italic">"Elite Standing in Top 5%"</p>
-                </div>
-              </Card>
-            )}
           </div>
+
+          {/* Performance Metrics Card */}
+          <Card className="bg-white border-slate-200 rounded-[2.5rem] p-8" title="Performance Metrics">
+             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="flex items-center gap-4 group/item">
+                   <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center shrink-0 group-hover/item:scale-110 transition-transform">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                   </div>
+                   <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Goal Completion</p>
+                      <p className="text-sm font-black text-slate-900">{completedGoals} / {totalGoals} Tasks</p>
+                   </div>
+                </div>
+                <div className="flex items-center gap-4 group/item">
+                   <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center shrink-0 group-hover/item:scale-110 transition-transform">
+                      <TrendingUp className="w-5 h-5 text-indigo-500" />
+                   </div>
+                   <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Execution Velocity</p>
+                      <p className="text-sm font-black text-slate-900">{avgProgress}% Average</p>
+                   </div>
+                </div>
+                <div className="flex items-center gap-4 group/item">
+                   <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center shrink-0 group-hover/item:scale-110 transition-transform">
+                      <History className="w-5 h-5 text-amber-500" />
+                   </div>
+                   <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Reviews Logged</p>
+                      <p className="text-sm font-black text-slate-900">{recentSubmissions} Weekly Syncs</p>
+                   </div>
+                </div>
+                <div className="flex items-center gap-4 group/item">
+                   <div className="w-12 h-12 rounded-2xl bg-rose-50 flex items-center justify-center shrink-0 group-hover/item:scale-110 transition-transform">
+                      <AlertCircle className="w-5 h-5 text-rose-500" />
+                   </div>
+                   <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Incident Reports</p>
+                      <p className="text-sm font-black text-slate-900">{activeComplaints} Active</p>
+                   </div>
+                </div>
+             </div>
+          </Card>
         </div>
       </div>
     </div>
@@ -1148,7 +1045,7 @@ const GoalsView = () => {
                       )}
                       <div className="flex justify-end gap-2">
                          <button onClick={() => { setActiveGoalId(null); setComment(""); setTempAttachments([]); }} className="px-3 py-1.5 text-[10px] font-bold uppercase text-slate-500">Cancel</button>
-                         <button onClick={() => { updateProgress(goal.id, goal.progress, tempAttachments); setTempAttachments([]); }} className="px-4 py-1.5 bg-indigo-600 text-white text-[10px] font-bold uppercase rounded-lg shadow-lg shadow-indigo-600/20">Commit Sync</button>
+                         <button onClick={() => { updateProgress(goal.id, goal.progress, tempAttachments); setTempAttachments([]); }} className="px-4 py-1.5 bg-indigo-600 text-white text-[10px] font-bold uppercase rounded-lg shadow-lg shadow-indigo-600/20">Save Changes</button>
                       </div>
                    </div>
                  ) : (
@@ -1621,29 +1518,9 @@ const ComplaintsView = () => {
 
     const newComplaints = [...data.complaints, newComplaint];
     
-    // Deduct credits immediately on registration
-    const newEmployees = data.employees.map(e => 
-      e.id === newComplaint.employeeId ? { ...e, credits: Math.max(0, e.credits - newComplaint.penaltyPoints), compliance: Math.max(0, e.compliance - 5) } : e
-    );
-
-    // Sync with monthlyScores
-    const activeMonthlyCycle = data.appraisalCycles.find(c => c.type === "Monthly" && c.status === "Active");
+    // No credits deduction on registration (only on validation/approval)
+    const newEmployees = [...data.employees];
     let newMonthlyScores = [...(data.monthlyScores || [])];
-    if (activeMonthlyCycle) {
-      const scoreIndex = newMonthlyScores.findIndex(ms => ms.employeeId === newComplaint.employeeId && ms.cycleId === activeMonthlyCycle.id);
-      if (scoreIndex >= 0) {
-        newMonthlyScores[scoreIndex].score -= newComplaint.penaltyPoints;
-      } else {
-        newMonthlyScores.push({
-          id: `ms-${Date.now()}`,
-          employeeId: newComplaint.employeeId,
-          cycleId: activeMonthlyCycle.id,
-          score: -newComplaint.penaltyPoints,
-          month: activeMonthlyCycle.month || parseLocalDate(activeMonthlyCycle.startDate).getMonth() + 1,
-          year: activeMonthlyCycle.year || parseLocalDate(activeMonthlyCycle.startDate).getFullYear()
-        });
-      }
-    }
 
     const newNotifications: Notification[] = [...data.notifications, {
       id: `n-${Date.now()}`,
@@ -1663,8 +1540,48 @@ const ComplaintsView = () => {
     const complaint = data.complaints.find(c => c.id === id);
     if (!complaint) return;
 
+    let actualCreditsDeducted = 0;
+    let actualComplianceDeducted = 0;
+
+    // Deduct credits and compliance on validation
+    const newEmployees = data.employees.map(e => {
+      if (e.id === complaint.employeeId) {
+        const nextCredits = Math.max(0, e.credits - complaint.penaltyPoints);
+        const nextCompliance = Math.max(0, e.compliance - 5);
+        actualCreditsDeducted = e.credits - nextCredits;
+        actualComplianceDeducted = e.compliance - nextCompliance;
+        return { 
+          ...e, 
+          credits: nextCredits, 
+          compliance: nextCompliance 
+        };
+      }
+      return e;
+    });
+
+    const commentMetadata = `deducted:${actualCreditsDeducted}:${actualComplianceDeducted}`;
+
+    // Sync with monthlyScores on validation
+    const activeMonthlyCycle = data.appraisalCycles.find(c => c.type === "Monthly" && c.status === "Active");
+    let newMonthlyScores = [...(data.monthlyScores || [])];
+    if (activeMonthlyCycle) {
+      const scoreIndex = newMonthlyScores.findIndex(ms => ms.employeeId === complaint.employeeId && ms.cycleId === activeMonthlyCycle.id);
+      if (scoreIndex >= 0) {
+        newMonthlyScores[scoreIndex].score -= complaint.penaltyPoints;
+      } else {
+        newMonthlyScores.push({
+          id: `ms-${Date.now()}`,
+          employeeId: complaint.employeeId,
+          cycleId: activeMonthlyCycle.id,
+          score: -complaint.penaltyPoints,
+          month: activeMonthlyCycle.month || parseLocalDate(activeMonthlyCycle.startDate).getMonth() + 1,
+          year: activeMonthlyCycle.year || parseLocalDate(activeMonthlyCycle.startDate).getFullYear()
+        });
+      }
+    }
+
     const newComplaints = data.complaints.map(c => 
-      c.id === id ? { ...c, status: "Validated" as const } : c
+      c.id === id ? { ...c, status: "Validated" as const, nullificationComment: commentMetadata } : c
     );
 
     const log = createAuditLog("STATUS_CHANGE", id, `Validated complaint: ${complaint.title}`, user?.id);
@@ -1672,6 +1589,8 @@ const ComplaintsView = () => {
     await updateData({ 
       ...data, 
       complaints: newComplaints, 
+      employees: newEmployees,
+      monthlyScores: newMonthlyScores,
       auditLogs: [log, ...data.auditLogs]
     });
   };
@@ -1680,13 +1599,32 @@ const ComplaintsView = () => {
     const complaint = data.complaints.find(c => c.id === id);
     if (!complaint) return;
 
-    const newEmployees = data.employees.map(e => 
-      e.id === complaint.employeeId ? { 
-        ...e, 
-        credits: Math.min(1000, e.credits + complaint.penaltyPoints), 
-        compliance: Math.min(100, e.compliance + 5) 
-      } : e
-    );
+    const wasValidated = complaint.status === "Validated";
+    let creditsToRestore = 0;
+    let complianceToRestore = 0;
+
+    if (wasValidated) {
+      const meta = complaint.nullificationComment || "";
+      if (meta.startsWith("deducted:")) {
+        const parts = meta.split(":");
+        creditsToRestore = parseInt(parts[1]) || 0;
+        complianceToRestore = parseInt(parts[2]) || 0;
+      } else {
+        creditsToRestore = complaint.penaltyPoints;
+        complianceToRestore = 5;
+      }
+    }
+
+    const newEmployees = data.employees.map(e => {
+      if (e.id === complaint.employeeId && wasValidated) {
+        return { 
+          ...e, 
+          credits: Math.min(1000, e.credits + creditsToRestore), 
+          compliance: Math.min(100, e.compliance + complianceToRestore) 
+        };
+      }
+      return e;
+    });
 
     const newComplaints = data.complaints.map(c => 
       c.id === id ? { 
@@ -1696,20 +1634,22 @@ const ComplaintsView = () => {
       } : c
     );
 
-    // Sync with monthlyScores
+    // Sync with monthlyScores (only restore if it was previously validated/deducted)
     let newMonthlyScores = [...(data.monthlyScores || [])];
-    const complaintDate = parseLocalDate(complaint.date);
-    const targetCycle = data.appraisalCycles.find(c => {
-      if (c.type !== "Monthly") return false;
-      const start = parseLocalDate(c.startDate);
-      const end = parseLocalDate(c.endDate);
-      return complaintDate >= start && complaintDate <= end;
-    }) || data.appraisalCycles.find(c => c.type === "Monthly" && c.status === "Active");
+    if (wasValidated) {
+      const complaintDate = parseLocalDate(complaint.date);
+      const targetCycle = data.appraisalCycles.find(c => {
+        if (c.type !== "Monthly") return false;
+        const start = parseLocalDate(c.startDate);
+        const end = parseLocalDate(c.endDate);
+        return complaintDate >= start && complaintDate <= end;
+      }) || data.appraisalCycles.find(c => c.type === "Monthly" && c.status === "Active");
 
-    if (targetCycle) {
-      const scoreIndex = newMonthlyScores.findIndex(ms => ms.employeeId === complaint.employeeId && ms.cycleId === targetCycle.id);
-      if (scoreIndex >= 0) {
-        newMonthlyScores[scoreIndex].score += complaint.penaltyPoints;
+      if (targetCycle) {
+        const scoreIndex = newMonthlyScores.findIndex(ms => ms.employeeId === complaint.employeeId && ms.cycleId === targetCycle.id);
+        if (scoreIndex >= 0) {
+          newMonthlyScores[scoreIndex].score += complaint.penaltyPoints;
+        }
       }
     }
 
@@ -1827,24 +1767,26 @@ const ComplaintsView = () => {
                 <span className="text-[10px] font-black uppercase text-rose-600 tracking-widest">Penalty: -{c.penaltyPoints} Credits</span>
                 <div className="flex items-center gap-2">
                    <Badge variant={c.status === "Validated" ? "success" : c.status === "Registered" ? "warning" : "default"}>{c.status}</Badge>
-                   {c.status === "Registered" && isHR && (
-                     <div className="flex gap-1">
-                       <button 
-                          onClick={() => validateComplaint(c.id)}
-                          className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition-colors"
-                          title="Validate Complaint"
-                       >
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                       </button>
-                       <button 
-                          onClick={() => setNullifyingId(c.id)}
-                          className="p-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 transition-colors"
-                          title="Nullify/Revert"
-                       >
-                          <X className="w-3.5 h-3.5" />
-                       </button>
-                     </div>
-                   )}
+                   {isHR && (c.status === "Registered" || c.status === "Validated") && (
+                      <div className="flex gap-1">
+                        {c.status === "Registered" && (
+                          <button 
+                             onClick={() => validateComplaint(c.id)}
+                             className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition-colors"
+                             title="Validate Complaint"
+                          >
+                             <CheckCircle2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button 
+                           onClick={() => setNullifyingId(c.id)}
+                           className="p-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 transition-colors"
+                           title="Nullify/Revert"
+                        >
+                           <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
                 </div>
              </div>
 
@@ -2186,7 +2128,7 @@ const CalendarActivityView = ({ events, startDate, endDate }: { events: any[], s
 const MonthlyAppraisalDetails = ({ onBack, onSelectEmployee, cycleId }: { onBack: () => void; onSelectEmployee: (id: string) => void; cycleId?: string }) => {
   const { data } = useData();
   const [searchQuery, setSearchQuery] = useState("");
-  const [teamFilter, setTeamFilter] = useState("All Teams");
+  const [designationFilter, setDesignationFilter] = useState("All Designations");
   const [eventTypeFilter, setEventTypeFilter] = useState("All Events");
 
   // Track the selected cycle ID in state to allow switching inside Monthly view
@@ -2203,7 +2145,7 @@ const MonthlyAppraisalDetails = ({ onBack, onSelectEmployee, cycleId }: { onBack
   const cycleStart = cycle ? parseLocalDate(cycle.startDate) : startOfMonth(viewDate);
   const cycleEnd = cycle ? parseLocalDate(cycle.endDate) : endOfMonth(viewDate);
 
-  const teams = ["All Teams", ...Array.from(new Set(data.employees.map(e => e.department)))];
+  const designations = ["All Designations", ...Array.from(new Set(data.employees.map(e => e.department)))];
   const eventTypes = ["All Events", "goal", "submission", "achievement", "merit", "complaint"];
   
   const filteredEmployees = [...data.employees]
@@ -2211,15 +2153,15 @@ const MonthlyAppraisalDetails = ({ onBack, onSelectEmployee, cycleId }: { onBack
       const matchesSearch = e.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                            e.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            e.department.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesTeam = teamFilter === "All Teams" || e.department === teamFilter;
-      return matchesSearch && matchesTeam;
+      const matchesDesignation = designationFilter === "All Designations" || e.department === designationFilter;
+      return matchesSearch && matchesDesignation;
     })
     .sort((a, b) => b.credits - a.credits);
     
   const [selectedEmpForCalendar, setSelectedEmpForCalendar] = useState<string | null>(null);
 
   // Snapshot Data Calculations
-  const employeesInTeam = data.employees.filter(e => teamFilter === "All Teams" || e.department === teamFilter);
+  const employeesInTeam = data.employees.filter(e => designationFilter === "All Designations" || e.department === designationFilter);
   const allEventsInCycle = employeesInTeam.flatMap(emp => getPerformanceEvents(data, emp.id, cycleStart, cycleEnd));
   const totalGoals = allEventsInCycle.filter(e => e.type === 'goal').length;
   const totalSubmissions = allEventsInCycle.filter(e => e.type === 'submission').length;
@@ -2250,11 +2192,11 @@ const MonthlyAppraisalDetails = ({ onBack, onSelectEmployee, cycleId }: { onBack
             />
           </div>
           <select 
-            value={teamFilter}
-            onChange={(e) => setTeamFilter(e.target.value)}
+            value={designationFilter}
+            onChange={(e) => setDesignationFilter(e.target.value)}
             className="px-4 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-indigo-100 transition-all"
           >
-            {teams.map(t => <option key={t} value={t}>{t}</option>)}
+            {designations.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
 
@@ -2408,7 +2350,7 @@ const MonthlyAppraisalDetails = ({ onBack, onSelectEmployee, cycleId }: { onBack
 const YearlyAppraisalDetails = ({ onBack, onSelectEmployee, cycleId }: { onBack: () => void; onSelectEmployee: (id: string) => void; cycleId?: string }) => {
   const { data } = useData();
   const [searchQuery, setSearchQuery] = useState("");
-  const [teamFilter, setTeamFilter] = useState("All Teams");
+  const [designationFilter, setDesignationFilter] = useState("All Designations");
   const [currentCycleId, setCurrentCycleId] = useState(cycleId);
 
   useEffect(() => {
@@ -2420,19 +2362,19 @@ const YearlyAppraisalDetails = ({ onBack, onSelectEmployee, cycleId }: { onBack:
   const cycleStart = cycle ? parseLocalDate(cycle.startDate) : new Date(new Date().getFullYear(), 6, 1);
   const cycleEnd = cycle ? parseLocalDate(cycle.endDate) : new Date(new Date().getFullYear() + 1, 5, 30);
 
-  const teams = ["All Teams", ...Array.from(new Set(data.employees.map(e => e.department)))];
+  const designations = ["All Designations", ...Array.from(new Set(data.employees.map(e => e.department)))];
 
   const employees = [...data.employees]
     .filter(e => {
       const matchesSearch = e.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            e.role.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesTeam = teamFilter === "All Teams" || e.department === teamFilter;
-      return matchesSearch && matchesTeam;
+      const matchesDesignation = designationFilter === "All Designations" || e.department === designationFilter;
+      return matchesSearch && matchesDesignation;
     })
     .sort((a, b) => b.credits - a.credits);
 
   // Snapshot Data Calculations for Yearly Cycle
-  const employeesInTeam = data.employees.filter(e => teamFilter === "All Teams" || e.department === teamFilter);
+  const employeesInTeam = data.employees.filter(e => designationFilter === "All Designations" || e.department === designationFilter);
   const allEventsInYear = employeesInTeam.flatMap(emp => getPerformanceEvents(data, emp.id, cycleStart, cycleEnd));
   const totalGoals = allEventsInYear.filter(e => e.type === 'goal').length;
   const totalCredits = allEventsInYear.filter(e => e.impact > 0).reduce((acc, e) => acc + e.impact, 0);
@@ -2462,11 +2404,11 @@ const YearlyAppraisalDetails = ({ onBack, onSelectEmployee, cycleId }: { onBack:
             />
           </div>
           <select 
-            value={teamFilter}
-            onChange={(e) => setTeamFilter(e.target.value)}
+            value={designationFilter}
+            onChange={(e) => setDesignationFilter(e.target.value)}
             className="px-4 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-indigo-100 transition-all"
           >
-            {teams.map(t => <option key={t} value={t}>{t}</option>)}
+            {designations.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
 
@@ -2512,51 +2454,8 @@ const YearlyAppraisalDetails = ({ onBack, onSelectEmployee, cycleId }: { onBack:
       </div>
 
       <div className="grid grid-cols-12 gap-8">
-        <div className="col-span-12 lg:col-span-4 space-y-6">
-           <Card className="bg-slate-900 text-white border-none" title="Retention & Growth Plan">
-              <div className="space-y-6">
-                 <div>
-                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400 mb-4">Promotion Candidates</h4>
-                    <ul className="space-y-3">
-                       {employees.slice(0, 3).map(e => (
-                         <li key={e.id} className="flex items-center justify-between bg-white/5 p-3 rounded-xl">
-                            <span className="text-xs font-bold">{formatEmpName(e)}</span>
-                            <Badge variant="success">Eligible</Badge>
-                         </li>
-                       ))}
-                    </ul>
-                 </div>
-                 <div>
-                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400 mb-4">Hike Recommendations</h4>
-                    <p className="text-[11px] text-slate-400 leading-relaxed font-medium">
-                      Based on current credit distribution, 12 employees are trending towards "Outstanding" rating (15-20% hike range).
-                    </p>
-                 </div>
-              </div>
-           </Card>
-
-           <Card title="Recognition candidates">
-              <div className="space-y-4">
-                 <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-center justify-between">
-                    <div>
-                       <p className="text-[9px] font-bold text-amber-600 uppercase tracking-widest">Employee of the Year</p>
-                       <p className="text-sm font-black text-slate-900">{employees[0]?.name}</p>
-                    </div>
-                    <Trophy className="w-5 h-5 text-amber-500" />
-                 </div>
-                 <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100 flex items-center justify-between">
-                    <div>
-                       <p className="text-[9px] font-bold text-indigo-600 uppercase tracking-widest">Rising Star</p>
-                       <p className="text-sm font-black text-slate-900">{employees[2]?.name}</p>
-                    </div>
-                    <Sparkles className="w-5 h-5 text-indigo-500" />
-                 </div>
-              </div>
-           </Card>
-        </div>
-
-        <div className="col-span-12 lg:col-span-8 space-y-8">
-           <Card className="p-0 overflow-hidden" title="Comparative Performance">
+         <div className="col-span-12 space-y-8">
+            <Card className="p-0 overflow-hidden" title="Comparative Performance">
               <div className="overflow-x-auto">
                  <table className="w-full text-left">
                    <thead className="bg-slate-50 border-b border-slate-100">
@@ -3243,7 +3142,6 @@ const AppraisalManagementView = () => {
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-2 mt-4">
           <div>
             <h1 className="text-3xl font-black tracking-tighter text-slate-900 uppercase">Appraisal Engine</h1>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">V2 • Strategic Performance Governance</p>
           </div>
           
           {isAdmin && (
@@ -3265,7 +3163,7 @@ const AppraisalManagementView = () => {
               {data.appraisalCycles.find(c => c.type === "Monthly" && c.status === "Active") ? <Badge variant="success">Monthly Active</Badge> : <Badge variant="default">Monthly Idle</Badge>}
             </div>
             <h2 className="text-xl font-black text-slate-900 mb-2">Monthly Appraisal Detail</h2>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6">Execution & Historical Tracking</p>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6">Monthly cycle progress & tracking</p>
             
             <div className="space-y-4 pt-6 border-t border-slate-100">
               <div className="flex justify-between items-center">
@@ -3287,7 +3185,7 @@ const AppraisalManagementView = () => {
               {data.appraisalCycles.find(c => c.type === "Yearly" && c.status === "Active") ? <Badge variant="warning">Yearly Active</Badge> : <Badge variant="default">Annual Idle</Badge>}
             </div>
             <h2 className="text-xl font-black text-slate-900 mb-2">Yearly Appraisal Detail</h2>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6">Strategic Review & Promotion</p>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6">Yearly review & planning</p>
             
             <div className="space-y-4 pt-6 border-t border-slate-100">
               <div className="flex justify-between items-center">
@@ -3714,7 +3612,7 @@ const WeeklyReview = () => {
       <header className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 bg-white p-8 rounded-[2rem] border border-slate-200">
         <div>
           <h1 className="text-3xl font-black tracking-tighter text-slate-900 uppercase">Weekly Submissions</h1>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Operational Consistency Flow • {submissions.length} Shown</p>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{submissions.length} Shown</p>
         </div>
         <div className="flex flex-wrap items-center gap-4">
            <div className="relative">
@@ -4087,7 +3985,6 @@ const AchievementsView = () => {
       <header className="flex justify-between items-center bg-white p-8 rounded-[2rem] border border-slate-200">
         <div>
           <h1 className="text-3xl font-black tracking-tighter text-slate-900 uppercase">Achievements Hub</h1>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Professional Recognition & Merit Sync</p>
         </div>
         {isEmployee && (
           <button 
@@ -4299,8 +4196,78 @@ const AchievementsView = () => {
 
 const Sidebar = () => {
   const { user } = useAuth();
-  const { data } = useData();
+  const { data, updateData, showToast } = useData();
   const location = useLocation();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [showAvatarMenu, setShowAvatarMenu] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+
+  const currentUser = data.employees.find(e => e.id === user?.id);
+  const currentUserProfilePicture = currentUser?.profilePicture;
+
+  const handleAvatarClick = () => {
+    setShowAvatarMenu(!showAvatarMenu);
+  };
+
+  const handleViewClick = () => {
+    setShowAvatarMenu(false);
+    setShowViewModal(true);
+  };
+
+  const handleEditClick = () => {
+    setShowAvatarMenu(false);
+    fileInputRef.current?.click();
+  };
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = async () => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        const MAX_WIDTH = 128;
+        const MAX_HEIGHT = 128;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+
+        // Update employee in state & database
+        const updatedEmployees = data.employees.map(emp => 
+          emp.id === user?.id ? { ...emp, profilePicture: dataUrl } : emp
+        );
+        
+        await updateData({
+          ...data,
+          employees: updatedEmployees
+        });
+        showToast("Profile picture updated successfully!", "success");
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
 
   const navItems = [
     { label: "Dashboard", path: "/", icon: BarChart3 },
@@ -4332,51 +4299,162 @@ const Sidebar = () => {
   }
 
   return (
-    <aside className="fixed inset-y-0 left-0 w-64 bg-[#f8fafc] border-r border-slate-200 hidden xl:flex flex-col">
-      <div className="p-8">
-        <div className="flex items-center gap-3 mb-10">
-          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/20">
-             <BarChart3 className="text-white w-5 h-5" />
+    <>
+      <aside className="fixed inset-y-0 left-0 w-64 bg-[#f8fafc] border-r border-slate-200 hidden xl:flex flex-col z-40">
+        <div className="p-8">
+          <div className="flex items-center gap-3 mb-10">
+            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/20">
+               <BarChart3 className="text-white w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-sm font-black tracking-widest leading-none uppercase text-slate-900">STRATA<span className="text-indigo-600">PERFORM</span></h2>
+              <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-widest">Performance Engine</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-sm font-black tracking-widest leading-none uppercase text-slate-900">STRATA<span className="text-indigo-600">PERFORM</span></h2>
-            <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-widest">Performance Engine</p>
-          </div>
+          
+          <nav className="space-y-1">
+            {navItems.map((item) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={cn(
+                  "flex items-center gap-3 px-4 py-3 text-[11px] font-bold uppercase tracking-widest transition-all rounded-xl",
+                  location.pathname === item.path 
+                    ? "bg-slate-900 text-white shadow-lg shadow-slate-900/10" 
+                    : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                )}
+              >
+                <item.icon className="w-4 h-4" />
+                {item.label}
+              </Link>
+            ))}
+          </nav>
         </div>
-        
-        <nav className="space-y-1">
-          {navItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={cn(
-                "flex items-center gap-3 px-4 py-3 text-[11px] font-bold uppercase tracking-widest transition-all rounded-xl",
-                location.pathname === item.path 
-                  ? "bg-slate-900 text-white shadow-lg shadow-slate-900/10" 
-                  : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
-              )}
-            >
-              <item.icon className="w-4 h-4" />
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-      </div>
 
-      <div className="mt-auto p-4 m-4 bg-white rounded-2xl border border-slate-200 shadow-sm">
-         <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center overflow-hidden">
-               <Users className="w-4 h-4 text-slate-400" />
-            </div>
-            <div className="overflow-hidden">
-               <p className="text-[11px] font-bold text-slate-900 truncate">
-                 {formatEmpName(data.employees.find(e => e.id === user?.id))}
-               </p>
-               <p className="text-[9px] font-bold text-indigo-600 uppercase tracking-widest">{user?.role}</p>
-            </div>
-         </div>
-      </div>
-    </aside>
+        <div className="mt-auto p-4 m-4 bg-white rounded-2xl border border-slate-200 shadow-sm relative">
+           <div className="flex items-center gap-3">
+              <div 
+                onClick={handleAvatarClick}
+                className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center text-white font-black text-sm shadow-md overflow-hidden relative group cursor-pointer"
+                title="Profile menu"
+              >
+                 {currentUserProfilePicture ? (
+                   <img src={currentUserProfilePicture} className="w-full h-full object-cover" alt="Profile" />
+                 ) : (
+                   currentUser?.name.charAt(0) || "?"
+                 )}
+                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                   <Camera className="w-3.5 h-3.5 text-white" />
+                 </div>
+              </div>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleAvatarChange} 
+                accept="image/*" 
+                className="hidden" 
+              />
+              <div className="overflow-hidden">
+                 <p className="text-[11px] font-bold text-slate-900 truncate">
+                   {formatEmpName(currentUser)}
+                 </p>
+                 <p className="text-[9px] font-bold text-indigo-600 uppercase tracking-widest">{user?.role}</p>
+              </div>
+           </div>
+
+           {/* Avatar Menu Options */}
+           <AnimatePresence>
+             {showAvatarMenu && (
+               <>
+                 <div 
+                   className="fixed inset-0 z-40 cursor-default" 
+                   onClick={() => setShowAvatarMenu(false)} 
+                 />
+                 <motion.div 
+                   initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                   animate={{ opacity: 1, y: 0, scale: 1 }}
+                   exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                   transition={{ duration: 0.15 }}
+                   className="absolute bottom-20 left-4 right-4 bg-white border border-slate-200 rounded-2xl shadow-xl p-2 z-50 flex flex-col gap-1"
+                 >
+                   <button
+                     onClick={handleViewClick}
+                     className="w-full flex items-center gap-2.5 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:text-indigo-600 hover:bg-indigo-50/50 rounded-xl transition-all"
+                   >
+                     <Eye className="w-4 h-4 shrink-0 text-slate-400" />
+                     View Picture
+                   </button>
+                   <button
+                     onClick={handleEditClick}
+                     className="w-full flex items-center gap-2.5 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:text-indigo-600 hover:bg-indigo-50/50 rounded-xl transition-all"
+                   >
+                     <Camera className="w-4 h-4 shrink-0 text-slate-400" />
+                     Change Photo
+                   </button>
+                 </motion.div>
+               </>
+             )}
+           </AnimatePresence>
+        </div>
+      </aside>
+
+      {/* View Picture Modal */}
+      <AnimatePresence>
+        {showViewModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowViewModal(false)}
+              className="fixed inset-0 bg-slate-950/60 backdrop-blur-md"
+            />
+            
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-white rounded-[2rem] overflow-hidden shadow-2xl max-w-sm w-full border border-slate-100 p-8 flex flex-col items-center z-10"
+            >
+              <button 
+                onClick={() => setShowViewModal(false)} 
+                className="absolute top-6 right-6 w-9 h-9 bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-900 rounded-xl flex items-center justify-center transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <h3 className="text-[11px] font-black tracking-widest uppercase text-slate-400 mb-6">Profile Photo</h3>
+              
+              <div className="w-48 h-48 rounded-3xl overflow-hidden shadow-md border border-slate-100 flex items-center justify-center bg-slate-900 text-white font-black text-6xl relative mb-6">
+                 {currentUserProfilePicture ? (
+                   <img src={currentUserProfilePicture} className="w-full h-full object-cover" alt="Profile" />
+                 ) : (
+                   currentUser?.name.charAt(0) || "?"
+                 )}
+              </div>
+
+              <h4 className="text-base font-black text-slate-900 mb-1">
+                {formatEmpName(currentUser)}
+              </h4>
+              <p className="text-[9px] font-bold text-indigo-600 uppercase tracking-widest mb-6">
+                {user?.role}
+              </p>
+
+              <button
+                onClick={() => {
+                  setShowViewModal(false);
+                  fileInputRef.current?.click();
+                }}
+                className="w-full py-3.5 bg-slate-900 hover:bg-indigo-600 text-white font-black uppercase text-[10px] tracking-widest rounded-2xl transition-all shadow-lg flex items-center justify-center gap-2"
+              >
+                <Camera className="w-4 h-4" />
+                Change Photo
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
 
@@ -4525,7 +4603,6 @@ const RecognitionView = () => {
        <header className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-3xl font-black tracking-tighter text-slate-900 uppercase">Honor & Recognition</h1>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Growth Mechanics • Excellence Tracker</p>
         </div>
         <button 
            onClick={handleAiPrediction} 
@@ -4630,16 +4707,16 @@ const RecognitionView = () => {
 
       <div className="grid grid-cols-12 gap-4">
          {/* Leaderboard Bento Card */}
-         <Card className="col-span-12 lg:col-span-12 p-0 overflow-hidden" title="Velocity Leaderboard">
+         <Card className="col-span-12 lg:col-span-12 p-0 overflow-hidden" title="Leaderboard">
             <div className="px-8 pb-8">
                <div className="grid grid-cols-12 gap-4 border-b border-slate-100 pb-4 mb-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">
                   <div className="col-span-1">Rank</div>
                   <div className="col-span-5">Professional</div>
-                  <div className="col-span-3">Department</div>
+                  <div className="col-span-3">Designation</div>
                   <div className="col-span-3 text-right">Momentum Score</div>
                </div>
                <div className="space-y-2">
-                  {leaderboard.slice(0, 10).map((emp, i) => (
+                  {leaderboard.map((emp, i) => (
                     <div key={emp.id} className="grid grid-cols-12 items-center p-4 hover:bg-slate-50 transition-colors rounded-2xl group">
                        <div className="col-span-1">
                           <span className={cn(
@@ -4850,7 +4927,7 @@ const BulkUploadPanel = ({
         errors.push("Employee ID already exists");
       }
 
-      if (!department) errors.push("Missing Department");
+      if (!department) errors.push("Missing Designation");
       
       let finalRole = "EMPLOYEE";
       const uRole = roleInput.toUpperCase();
@@ -4941,7 +5018,7 @@ const BulkUploadPanel = ({
        <div className="space-y-2">
           <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Or paste CSV content directly</label>
           <textarea 
-            placeholder="Name,Email,EmployeeID,Department,Role&#10;John Doe,john@company.com,EMP001,Engineering,EMPLOYEE&#10;Jane Smith,jane@company.com,EMP002,HR,HR"
+            placeholder="Name,Email,EmployeeID,Designation,Role&#10;John Doe,john@company.com,EMP001,Engineering,EMPLOYEE&#10;Jane Smith,jane@company.com,EMP002,HR,HR"
             value={csvText}
             onChange={(e) => { setCsvText(e.target.value); handleCSVParse(e.target.value); }}
             onPaste={handlePaste}
@@ -4959,7 +5036,7 @@ const BulkUploadPanel = ({
                         <th className="p-4">Name</th>
                         <th className="p-4">Email</th>
                         <th className="p-4">Emp ID</th>
-                        <th className="p-4">Department</th>
+                        <th className="p-4">Designation</th>
                         <th className="p-4">Role</th>
                         <th className="p-4">Status</th>
                      </tr>
@@ -5016,13 +5093,37 @@ const BulkUploadPanel = ({
 
 // --- Page Wrapper for Organization Settings ---
 const SettingsView = () => {
-  const { data, updateData, createAuditLog, showToast } = useData();
+  const { data, updateData, createAuditLog, showToast, reloadData } = useData();
   const { user: currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<"organization" | "point-system">("organization");
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [view, setView] = useState<"list" | "hierarchy" | "roles" | "audit">("list");
   const [uploadMode, setUploadMode] = useState<"single" | "bulk">("single");
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleSyncSharepoint = async () => {
+    setIsSyncing(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/sync-sharepoint`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        }
+      });
+      const result = await response.json();
+      if (response.ok && result.success) {
+        showToast(result.message || "SharePoint sync completed successfully!", "success");
+        await reloadData();
+      } else {
+        showToast(result.error || "SharePoint sync failed.", "error");
+      }
+    } catch (error: any) {
+      showToast(error.message || "Error connecting to server for sync.", "error");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const handleBulkUsersCreate = async (users: any[]) => {
     let newEmployees = [...data.employees];
@@ -5111,8 +5212,45 @@ const SettingsView = () => {
     isActive: true,
     credits: 0,
     compliance: 100,
-    empId: ""
+    empId: "",
+    profilePicture: ""
   });
+
+  const handleFormPhotoChange = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        const MAX_WIDTH = 128;
+        const MAX_HEIGHT = 128;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+        setForm(prev => ({ ...prev, profilePicture: dataUrl }));
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = async () => {
     let newEmployees = [...data.employees];
@@ -5177,7 +5315,7 @@ const SettingsView = () => {
     
     setIsAdding(false);
     setEditingId(null);
-    setForm({ name: "", email: "", role: "EMPLOYEE", department: "", managerId: "", isActive: true, credits: 0, compliance: 100, empId: "" });
+    setForm({ name: "", email: "", role: "EMPLOYEE", department: "", managerId: "", isActive: true, credits: 0, compliance: 100, empId: "", profilePicture: "" });
   };
 
   const startEdit = (emp: Employee) => {
@@ -5334,8 +5472,16 @@ const SettingsView = () => {
               </button>
             ))}
             <button 
+              onClick={handleSyncSharepoint}
+              disabled={isSyncing}
+              className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white font-bold uppercase text-[10px] tracking-widest rounded-xl hover:bg-emerald-700 transition-all shadow-lg ml-auto disabled:opacity-50"
+            >
+              <RefreshCw className={cn("w-3.5 h-3.5", isSyncing && "animate-spin")} />
+              {isSyncing ? "Syncing..." : "Sync SharePoint"}
+            </button>
+            <button 
               onClick={() => setIsAdding(true)}
-              className="px-6 py-2.5 bg-indigo-600 text-white font-bold uppercase text-[10px] tracking-widest rounded-xl hover:bg-indigo-700 transition-all shadow-lg ml-auto"
+              className="px-6 py-2.5 bg-indigo-600 text-white font-bold uppercase text-[10px] tracking-widest rounded-xl hover:bg-indigo-700 transition-all shadow-lg"
             >Add User</button>
           </div>
 
@@ -5361,65 +5507,100 @@ const SettingsView = () => {
                    existingEmployees={data.employees}
                  />
                ) : (
-                 <>
-                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div className="space-y-2">
-                         <label className="text-[10px] font-bold uppercase text-slate-400">Full Name</label>
-                         <input 
-                           type="text" value={form.name}
-                           className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-                           onChange={(e) => setForm({...form, name: e.target.value})}
-                         />
-                      </div>
-                      <div className="space-y-2">
-                         <label className="text-[10px] font-bold uppercase text-slate-400">Employee ID</label>
-                         <input 
-                           type="text" value={form.empId || ""}
-                           placeholder="e.g. EMP001"
-                           className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-                           onChange={(e) => setForm({...form, empId: e.target.value})}
-                         />
-                      </div>
-                      <div className="space-y-2">
-                         <label className="text-[10px] font-bold uppercase text-slate-400">Email Address</label>
-                         <input 
-                           type="email" value={form.email}
-                           className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-                           onChange={(e) => setForm({...form, email: e.target.value})}
-                         />
-                      </div>
-                      <div className="space-y-2">
-                         <label className="text-[10px] font-bold uppercase text-slate-400">Department</label>
-                         <input 
-                           type="text" value={form.department}
-                           className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-                           onChange={(e) => setForm({...form, department: e.target.value})}
-                         />
-                      </div>
-                      <div className="space-y-2">
-                         <label className="text-[10px] font-bold uppercase text-slate-400">Role</label>
-                         <select 
-                           value={form.role}
-                           className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-                           onChange={(e) => setForm({...form, role: e.target.value as UserRole})}
-                         >
-                           <option value="EMPLOYEE">Employee</option>
-                           <option value="HR">HR</option>
-                           <option value="MANAGEMENT">Management</option>
-                         </select>
-                      </div>
-                   </div>
-                   <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-slate-100">
-                      <button 
-                        onClick={() => { setIsAdding(false); setEditingId(null); }}
-                        className="px-6 py-2 text-[10px] font-bold uppercase text-slate-500"
-                      >Cancel</button>
-                      <button 
-                        onClick={handleSubmit}
-                        className="px-6 py-2 bg-slate-900 text-white text-[10px] font-bold uppercase rounded-xl"
-                      >{editingId ? "Update User" : "Create User"}</button>
-                   </div>
-                 </>
+                  <>
+                    <div className="flex flex-col md:flex-row gap-8 items-start mb-6">
+                       {/* Profile Picture Box */}
+                       <div className="flex flex-col items-center gap-3 shrink-0">
+                          <label className="text-[10px] font-bold uppercase text-slate-400">Profile Photo</label>
+                          <div className="w-24 h-24 rounded-3xl bg-slate-900 border border-slate-200 flex items-center justify-center text-white font-black text-3xl overflow-hidden relative group cursor-pointer shadow-md">
+                             {form.profilePicture ? (
+                               <img src={form.profilePicture} className="w-full h-full object-cover" alt="Preview" />
+                             ) : (
+                               form.name ? form.name.charAt(0).toUpperCase() : "?"
+                             )}
+                             <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                               <Camera className="w-6 h-6 text-white" />
+                             </div>
+                             <input 
+                               type="file" 
+                               accept="image/*" 
+                               onChange={(e) => {
+                                 const file = e.target.files?.[0];
+                                 if (file) handleFormPhotoChange(file);
+                               }} 
+                               className="absolute inset-0 opacity-0 cursor-pointer" 
+                             />
+                          </div>
+                          {form.profilePicture && (
+                            <button
+                              type="button"
+                              onClick={() => setForm({ ...form, profilePicture: "" })}
+                              className="text-[9px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-700 transition-colors"
+                            >
+                              Remove Photo
+                            </button>
+                          )}
+                       </div>
+
+                       <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
+                          <div className="space-y-2">
+                             <label className="text-[10px] font-bold uppercase text-slate-400">Full Name</label>
+                             <input 
+                               type="text" value={form.name}
+                               className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                               onChange={(e) => setForm({...form, name: e.target.value})}
+                             />
+                          </div>
+                          <div className="space-y-2">
+                             <label className="text-[10px] font-bold uppercase text-slate-400">Employee ID</label>
+                             <input 
+                               type="text" value={form.empId || ""}
+                               placeholder="e.g. EMP001"
+                               className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                               onChange={(e) => setForm({...form, empId: e.target.value})}
+                             />
+                          </div>
+                          <div className="space-y-2">
+                             <label className="text-[10px] font-bold uppercase text-slate-400">Email Address</label>
+                             <input 
+                               type="email" value={form.email}
+                               className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                               onChange={(e) => setForm({...form, email: e.target.value})}
+                             />
+                          </div>
+                          <div className="space-y-2">
+                             <label className="text-[10px] font-bold uppercase text-slate-400">Designation</label>
+                             <input 
+                               type="text" value={form.department}
+                               className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                               onChange={(e) => setForm({...form, department: e.target.value})}
+                             />
+                          </div>
+                          <div className="space-y-2">
+                             <label className="text-[10px] font-bold uppercase text-slate-400">Role</label>
+                             <select 
+                               value={form.role}
+                               className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                               onChange={(e) => setForm({...form, role: e.target.value as UserRole})}
+                             >
+                               <option value="EMPLOYEE">Employee</option>
+                               <option value="HR">HR</option>
+                               <option value="MANAGEMENT">Management</option>
+                             </select>
+                          </div>
+                       </div>
+                    </div>
+                    <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-slate-100">
+                       <button 
+                         onClick={() => { setIsAdding(false); setEditingId(null); }}
+                         className="px-6 py-2 text-[10px] font-bold uppercase text-slate-500"
+                       >Cancel</button>
+                       <button 
+                         onClick={handleSubmit}
+                         className="px-6 py-2 bg-slate-900 text-white text-[10px] font-bold uppercase rounded-xl"
+                       >{editingId ? "Update User" : "Create User"}</button>
+                    </div>
+                  </>
                )}
             </Card>
           )}
@@ -5450,7 +5631,7 @@ const SettingsView = () => {
                   </select>
                   <select className="px-4 py-3 bg-slate-50 border-none rounded-2xl text-[11px] font-bold uppercase tracking-widest text-slate-500 font-sans"
                     value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)}>
-                     <option value="ALL">All Depts</option>
+                     <option value="ALL">All Designations</option>
                      {departments.map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
                   <button 
@@ -5498,7 +5679,12 @@ const SettingsView = () => {
                           </div>
                           <div className="min-w-0 flex-1">
                              <h4 className="font-bold text-slate-900 flex items-center gap-2 truncate">
-                               {formatEmpName(emp)}
+                               {emp.name}
+                               {emp.empId && (
+                                 <span className="text-[10px] bg-slate-100 text-slate-500 font-mono px-2 py-0.5 rounded-lg border border-slate-200/50">
+                                   {emp.empId}
+                                 </span>
+                               )}
                                {!emp.isActive && <Badge variant="danger">Inactive</Badge>}
                              </h4>
                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">
@@ -5508,6 +5694,13 @@ const SettingsView = () => {
                           </div>
                        </div>
                        <div className="flex gap-2">
+                          <button 
+                           onClick={() => startEdit(emp)}
+                           className="p-3 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 rounded-xl border border-indigo-100 transition-colors"
+                           title="Edit User"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
                           <button 
                            onClick={() => toggleStatus(emp.id)}
                            className={cn(
@@ -5712,34 +5905,11 @@ const SettingsView = () => {
                       className="group flex items-center gap-3 px-10 py-4 bg-slate-900 text-white rounded-[1.5rem] hover:bg-slate-800 transition-all shadow-xl"
                     >
                        <Zap className="w-4 h-4 text-amber-400 group-hover:scale-125 transition-transform" />
-                       <span className="text-[11px] font-black uppercase tracking-[0.2em]">Deploy Point Mechanics</span>
+                       <span className="text-[11px] font-black uppercase tracking-[0.2em]">Save Point Settings</span>
                     </button>
                  </div>
               </div>
            </Card>
-
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
-              <div className="bg-indigo-600 rounded-3xl p-8 text-white relative overflow-hidden group border border-indigo-500 shadow-2xl">
-                 <Terminal className="absolute top-4 right-4 w-12 h-12 opacity-10 group-hover:scale-110 transition-transform" />
-                 <h4 className="text-lg font-black uppercase tracking-tight mb-4">Live Recalibrations</h4>
-                 <p className="text-xs font-medium text-indigo-100 leading-relaxed mb-6">
-                   Any updates to these scores will be applied to all future approvals. Past scores remain locked to ensure historical appraisal integrity.
-                 </p>
-                 <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-indigo-200 bg-white/10 px-4 py-2 rounded-xl w-fit">
-                    <CheckCircle className="w-3.5 h-3.5" /> Synchronized with DB
-                 </div>
-              </div>
-              <div className="bg-white rounded-3xl p-8 border border-slate-200 relative overflow-hidden group shadow-sm">
-                 <Shield className="absolute top-4 right-4 w-12 h-12 text-slate-50 group-hover:scale-110 transition-transform" />
-                 <h4 className="text-lg font-black uppercase tracking-tight mb-4 text-slate-900">Governance Lock</h4>
-                 <p className="text-xs font-medium text-slate-500 leading-relaxed mb-6">
-                   Point System changes are logged in the Global Audit Trail. Only Authorized HR and Leadership can modify these constants.
-                 </p>
-                 <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 bg-slate-50 px-4 py-2 rounded-xl w-fit">
-                    <Lock className="w-3.5 h-3.5" /> Secure Configuration
-                 </div>
-              </div>
-           </div>
         </div>
       )}
     </div>
@@ -6864,12 +7034,16 @@ const DataProvider = ({ children }: { children: React.ReactNode }) => {
     timestamp: new Date().toISOString()
   });
 
-  useEffect(() => {
-    API.fetchData().then(d => {
+  const loadDataFromServer = async (isReload = false) => {
+    if (!isReload) {
+      setLoading(true);
+    }
+    try {
+      const d = await API.fetchData();
       if (!d || d.error || !d.employees) {
         console.error("Failed to load database. Fetch response:", d);
-        showToast("Failed to connect to database. Please reload.", "error");
-        setLoading(false);
+        showToast("Failed to connect to database.", "error");
+        if (!isReload) setLoading(false);
         return;
       }
       let cycles = sortAppraisalCycles(d.appraisalCycles || []);
@@ -6981,11 +7155,22 @@ const DataProvider = ({ children }: { children: React.ReactNode }) => {
 
       setData(updatedData);
       if (hasChanges) {
-        API.saveData(updatedData);
+        await API.saveData(updatedData);
       }
-      setLoading(false);
-    });
+    } catch (err) {
+      console.error("Error loading data from server:", err);
+    } finally {
+      if (!isReload) setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDataFromServer();
   }, []);
+
+  const reloadData = async () => {
+    await loadDataFromServer(true);
+  };
 
   const updateData = async (newData: AppData, skipLoadingOverlay?: boolean) => {
     let loadingMsg = "Saving changes...";
@@ -7207,7 +7392,7 @@ const DataProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <DataContext.Provider value={{ data, updateData, createAuditLog, loading, showToast }}>
+    <DataContext.Provider value={{ data, updateData, createAuditLog, loading, showToast, reloadData }}>
       {children}
       {/* Toast Notification Hub */}
       <div className="fixed bottom-8 right-8 z-[100] flex flex-col gap-3">

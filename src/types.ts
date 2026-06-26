@@ -21,6 +21,7 @@ export interface Employee {
   otpCode?: string;
   otpExpiry?: string;
   empId?: string;
+  profilePicture?: string;
 }
 
 export interface ProgressUpdate {

@@ -1,4 +1,6 @@
 import os
+import csv
+import io
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -80,7 +82,8 @@ def get_db():
                 "password": e.get("password"),
                 "isTempPassword": e.get("is_temp_password", False),
                 "otpCode": e.get("otp_code"),
-                "otpExpiry": e.get("otp_expiry")
+                "otpExpiry": e.get("otp_expiry"),
+                "profilePicture": e.get("profile_picture")
             })
 
         # 2. Map Goals
@@ -376,7 +379,8 @@ def post_db():
                 "password": e.get("password"),
                 "is_temp_password": e.get("isTempPassword", False),
                 "otp_code": e.get("otpCode"),
-                "otp_expiry": e.get("otpExpiry")
+                "otp_expiry": e.get("otpExpiry"),
+                "profile_picture": e.get("profilePicture")
             })
             if e.get("managerId"):
                 manager_mapping[e["id"]] = e["managerId"]
@@ -903,6 +907,117 @@ def api_reset_password():
     except Exception as e:
         print("Reset Password API error:", str(e))
         return jsonify({"error": str(e)}), 500
+
+import urllib.parse
+import urllib.request
+import json
+
+def get_ms_graph_token(tenant_id, client_id, client_secret):
+    url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+    payload = {
+        "grant_type": "client_credentials",
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "scope": "https://graph.microsoft.com/.default"
+    }
+    data = urllib.parse.urlencode(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+    with urllib.request.urlopen(req) as response:
+        res = json.loads(response.read().decode("utf-8"))
+        return res["access_token"]
+
+def download_sharepoint_file(token, user_email, item_id):
+    url = f"https://graph.microsoft.com/v1.0/users/{user_email}/drive/items/{item_id}/content"
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+    req = urllib.request.Request(url, headers=headers, method="GET")
+    with urllib.request.urlopen(req) as response:
+        return response.read().decode("utf-8-sig")
+
+@app.route("/api/sync-sharepoint", methods=["POST"])
+@serialized_route
+def sync_sharepoint():
+    tenant_id = os.getenv("AZURE_TENANT_ID")
+    client_id = os.getenv("AZURE_CLIENT_ID")
+    client_secret = os.getenv("AZURE_CLIENT_SECRET")
+    user_email = os.getenv("SHAREPOINT_USER_EMAIL")
+    item_id = os.getenv("SHAREPOINT_ITEM_ID")
+
+    if not all([tenant_id, client_id, client_secret, user_email, item_id]):
+        return jsonify({"error": "Missing SharePoint sync configuration in .env file."}), 400
+
+    try:
+        # 1. Get access token
+        token = get_ms_graph_token(tenant_id, client_id, client_secret)
+
+        # 2. Download file content
+        csv_content = download_sharepoint_file(token, user_email, item_id)
+
+        # 3. Parse CSV
+        f = io.StringIO(csv_content)
+        reader = csv.DictReader(f)
+
+        rows = list(reader)
+        if not rows:
+            return jsonify({"success": True, "updated": 0, "message": "SharePoint CSV is empty."})
+
+        # 4. Fetch current employees in database to match
+        db_emps = supabase.table("employees").select("*").execute().data or []
+        db_emp_ids = {e.get("emp_id"): e for e in db_emps if e.get("emp_id")}
+
+        updated_count = 0
+        for row in rows:
+            # We match by the employee ID column in the CSV: "crc6f_employeeid"
+            emp_id = (row.get("crc6f_employeeid") or "").strip()
+            if not emp_id or emp_id not in db_emp_ids:
+                continue
+
+            # Parse active status: "crc6f_activeflag"
+            active_flag_val = (row.get("crc6f_activeflag") or "").strip().upper()
+            is_active = active_flag_val == "TRUE"
+
+            # Parse full name: "crc6f_firstname" and "crc6f_lastname"
+            first_name = (row.get("crc6f_firstname") or "").strip()
+            last_name = (row.get("crc6f_lastname") or "").strip()
+            full_name = f"{first_name} {last_name}".strip()
+
+            # Parse email: "crc6f_email"
+            email = (row.get("crc6f_email") or "").strip()
+
+            # Parse designation: "crc6f_designation"
+            designation = (row.get("crc6f_designation") or "").strip()
+
+            # Check if there are differences before updating
+            db_emp = db_emp_ids[emp_id]
+            needs_update = (
+                db_emp.get("is_active") != is_active or
+                db_emp.get("name") != full_name or
+                db_emp.get("email") != email or
+                db_emp.get("department") != designation
+            )
+
+            if needs_update:
+                supabase.table("employees").update({
+                    "is_active": is_active,
+                    "name": full_name,
+                    "email": email,
+                    "department": designation
+                }).eq("emp_id", emp_id).execute()
+                updated_count += 1
+
+        return jsonify({
+            "success": True,
+            "updated": updated_count,
+            "message": f"Successfully synced with SharePoint. Updated {updated_count} employees."
+        })
+
+    except Exception as e:
+        print("SharePoint Sync Error:", str(e))
+        return jsonify({"error": f"SharePoint Sync failed: {str(e)}"}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
